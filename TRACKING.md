@@ -40,18 +40,26 @@ npm run test:emulator   # callable / transaction integration tests
       create operation"
 - [ ] **Separate staging/prod projects** — NOT done. `menu-bukhara` is currently dev,
       staging and prod at once; docs/06-DEPLOYMENT.md requires three
+- [x] Cloud Storage bucket created (`africa-south1`) — evidence: defaultBucket API
+- [x] Email/Password auth provider enabled — evidence: identitytoolkit config PATCH
+- [x] **App Check registered and enforced** — reCAPTCHA Enterprise key created and bound
+      to the web app over the API; a debug token lets this machine call the live project
+- [x] **Live end-to-end verification against the deployed project** — App Check exchange,
+      healthcheck, resolveTableQr, submitGuestOrder (server-priced P337), idempotent
+      replay returning the same order id, getGuestSessionView
 - [ ] **App Hosting front end** — NOT deployed. Backend creation needs an interactive
-      terminal and a browser GitHub authorisation; see docs/11-FIREBASE-SETUP.md
-- [ ] **Firebase Storage not initialised** — needs one "Get Started" click in the console
-      before `npm run deploy:rules` can push `storage.rules`
-- [ ] **App Check site key** — not registered, so the deployed callables reject every
-      request; the app cannot work in a browser until this is set
+      terminal and a browser GitHub authorisation; see docs/11-FIREBASE-SETUP.md.
+      The app runs locally against the live backend in the meantime
 - [ ] Node 22 LTS locally — this machine runs Node 20.20.1. The deployed runtime is
       Node 22 (Node 20 was decommissioned on 2026-10-31), so build host and target differ
 
-### M1 — Branding and data — [~] tooling and UI done, data outstanding
-- [ ] **Obtain approved menu CSV, images, allergen/options data, logo, table labels**
-      — BLOCKED, not supplied
+### M1 — Branding and data — [~] menu loaded, approval outstanding
+- [~] **Menu, prices and allergens** — transcribed from the supplied menu scans into
+      `data/` and imported: 16 categories, 155 items, all published. NOT yet checked
+      against the printed menu; four ambiguous rows are flagged in the notes column
+- [~] **Photography** — stand-in images sourced from Wikimedia Commons, uploaded to our
+      own Storage bucket and rendered in the UI. Not Bukhara's own food
+- [ ] **Logo and brand assets, exact table labels** — still not supplied
 - [x] Firestore menu importer — evidence: `scripts/import-menu.ts`; decimal BWP parsed to
       integer thebe without float arithmetic; refuses to publish an item with no photo path
 - [ ] Image variant pipeline — NOT done (no photographs supplied)
@@ -154,14 +162,18 @@ deployed.
 | 10 | Network failures never show false order success | Met (idempotent submit, explicit failure states); not yet tested on a real flaky network |
 
 ## Blockers
-- **Actual Bukhara menu, pricing and photographs not supplied** — blocks M1 and
-  publishing any item (the importer refuses to publish a photoless item).
+- **The menu is transcribed from supplied photographs and is NOT signed off.**
+  155 items and their prices were read off six scanned menu pages into
+  `data/menu-items.csv`. It must be checked line by line against the printed
+  menu before any guest sees it. Four rows are flagged in the `notes` column
+  where the scan was ambiguous (Seekh Kebab's two prices, Samosa's two prices,
+  the T-bone's bracketed note, and the Veg Paneer Sizzler printed without a P).
+- **The photographs are stand-ins, not Bukhara's food.** Every image is a
+  generic dish photograph from Wikimedia Commons, matched by dish name and
+  uploaded to our own bucket. They are legally reusable but they are not this
+  restaurant's plating, and a few are approximate (garlic naan reuses the naan
+  photo; beef masala reuses a mutton curry). Replace before launch.
 - **Brand assets, exact table labels, staff names/roles and domain pending.**
-- **App Check is not registered, so the deployed backend rejects everything.**
-  The callables set `enforceAppCheck: true` outside the emulator. Until a
-  reCAPTCHA v3 site key is in `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` (and in
-  `apphosting.yaml`), every call fails before it reaches our code. One console
-  step; see docs/11-FIREBASE-SETUP.md.
 - **App Hosting front end not deployed.** `firebase apphosting:backends:create`
   cannot run non-interactively — it needs a TTY and a browser authorisation to
   connect a GitHub repository through Developer Connect. The repository is
@@ -169,8 +181,6 @@ deployed.
   machine. App Hosting also has no African region; `europe-west4` is the
   closest usable one, which affects only initial HTML delivery because the data
   path stays in `africa-south1`.
-- **Firebase Storage is not initialised** — the default bucket needs one
-  "Get Started" click in the console, after which `storage.rules` deploys.
 - **Only one Firebase project.** `menu-bukhara` is dev, staging and prod at
   once. Create separate projects before the pilot so a developer machine cannot
   reach live tables.

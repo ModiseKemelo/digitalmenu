@@ -51,11 +51,16 @@ env:
     value: https://menu-bukhara.web.app
     availability: [BUILD, RUNTIME]
 
-  # App Check. REQUIRED: the callables enforce App Check outside the emulator,
-  # so until this holds a reCAPTCHA v3 site key the deployed site cannot call
-  # the backend at all. See docs/11-FIREBASE-SETUP.md.
-  - variable: NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY
-    value: ""
+  # App Check. REQUIRED: the callables enforce App Check outside the emulator.
+  # This is a reCAPTCHA Enterprise site key, which is public by design — it is
+  # embedded in every page that loads reCAPTCHA. The paired secret stays with
+  # Google and is never needed here. Registered against this web app via
+  # firebaseappcheck.googleapis.com; see docs/11-FIREBASE-SETUP.md.
+  - variable: NEXT_PUBLIC_APP_CHECK_SITE_KEY
+    value: 6Leeqw4uAAAAAEW-BB9eWvPbM6IA-d6zUMbf4oBp
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_APP_CHECK_PROVIDER
+    value: enterprise
     availability: [BUILD, RUNTIME]
 
   - variable: NEXT_PUBLIC_USE_EMULATORS

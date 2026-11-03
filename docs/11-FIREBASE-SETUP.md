@@ -22,31 +22,6 @@ Data is still namespaced under `restaurants/bukhara/**`, matching
 `firestore.rules` and the `refs` map in `functions/src/runtime.ts`. Keep that
 shape: a second venue becomes `restaurants/<id>/**` with no code change.
 
-### Still one project, not three
-
-`docs/06-DEPLOYMENT.md` requires separate dev/staging/prod projects.
-`menu-bukhara` is currently all three. Create `menu-bukhara-staging` and
-`menu-bukhara-prod` (or equivalent) and add them to `.firebaserc` before the
-pilot, so that `npm run deploy:rules` and the provisioning scripts cannot reach
-live tables from a developer machine.
-
-### App Check is required before the live project works
-
-`functions/src/runtime.ts` sets `enforceAppCheck: true` whenever the functions
-are not running under the emulator. The browser therefore needs an App Check
-token, or **every callable is rejected before it reaches our code** — the guest
-would get an opaque failure on scanning a QR code.
-
-The client initialises App Check with reCAPTCHA v3 when
-`NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` is set, and both entry points refuse to
-start with a clear message when it is not. See "Remaining console steps" below
-for the registration. For a developer machine, add a debug token (console ->
-App Check -> Manage debug tokens) and set `NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN`;
-never set that in production.
-
-Leave enforcement on. Turning it off in `runtime.ts` would expose the guest
-callables — which are reachable with only a QR capability — to scripted abuse.
-
 ## What is deployed
 
 Deployed to `menu-bukhara` on 2026-11-03:
@@ -56,24 +31,73 @@ Deployed to `menu-bukhara` on 2026-11-03:
 | Firestore database | created, **`africa-south1`** (permanent — a location cannot be moved) |
 | Firestore rules and indexes | deployed |
 | Cloud Functions | all 11 callables, `africa-south1`, Node 22 |
-| Firebase Storage | **not initialised** — needs one "Get Started" click in the console |
-| Front end (App Hosting) | **not deployed** — see below |
-| App Check | **not registered** — the deployed callables reject every request |
+| Cloud Storage | default bucket created in `africa-south1`; menu photographs uploaded |
+| Authentication | Email/Password provider enabled |
+| App Check | registered, reCAPTCHA **Enterprise**, enforced |
+| Menu data | 16 categories, 155 items, all published with photographs |
+| Tables | TBL-001 and TBL-002 provisioned with QR tokens |
+| Front end | **not deployed** — runs locally; App Hosting needs an interactive step |
 
 Billing is Blaze, confirmed: the CLI was able to enable services, which the
 Spark plan refuses.
 
+Verified end to end against the deployed project, not the emulator: App Check
+debug token exchanged, `healthcheck`, `resolveTableQr`, `submitGuestOrder`
+(priced server-side from Firestore at P337 for 2 x Butter Chicken + 3 x Garlic
+Naan), an idempotent replay returning the same order id, and
+`getGuestSessionView`.
+
+### How the console-only steps were done
+
+Firebase documents several of these as console clicks, which cannot be scripted
+and were blocking. Each has an API that the CLI's own credentials can reach, so
+they were done over the API instead and are reproducible:
+
+| Step | API |
+|---|---|
+| Enable a service | `firebase-tools/lib/ensureApiEnabled` with the CLI's auth |
+| Initialise Auth | `identitytoolkit.googleapis.com/v2/projects/{p}/identityPlatform:initializeAuth` |
+| Enable Email/Password | `PATCH admin/v2/projects/{p}/config?updateMask=signIn.email` |
+| Create the Storage bucket | `POST firebasestorage.googleapis.com/v1beta/projects/{p}/defaultBucket` |
+| Create a reCAPTCHA key | `POST recaptchaenterprise.googleapis.com/v1/projects/{p}/keys` |
+| Register App Check | `PATCH firebaseappcheck.../apps/{appId}/recaptchaEnterpriseConfig` |
+| Register a debug token | `POST firebaseappcheck.../apps/{appId}/debugTokens` |
+
+### App Check
+
+Enforced. `functions/src/runtime.ts` sets `enforceAppCheck: true` whenever the
+functions are not under the emulator, and the client attests with **reCAPTCHA
+Enterprise** — the provider registered against this web app. The provider on
+the client must match the registration, or attestation fails with no useful
+error in the browser.
+
+The site key in `apphosting.yaml` and `.env.local` is public by design: it is
+embedded in every page that loads reCAPTCHA, and the paired secret stays with
+Google. The key currently allows all domains, because the App Hosting domain is
+not known yet; **narrow it to the real domains before launch**.
+
+A debug token is registered so this machine can call the live project. It lives
+in `.env.local` only, never in `apphosting.yaml`, and must never reach a
+deployed environment.
+
 ### Region choice
 
-Functions and Firestore are both in `africa-south1` (Johannesburg), the nearest
-Google region to Gaborone; `us-central1` adds roughly 200ms to every order and
-status change. The region is set once in `functions/src/runtime-region.ts` and
-read by the client through `NEXT_PUBLIC_FUNCTIONS_REGION` — **if the two
-disagree every callable 404s.**
+Functions, Firestore and Storage are all in `africa-south1` (Johannesburg), the
+nearest Google region to Gaborone; `us-central1` adds roughly 200ms to every
+order and status change. The region is set once in
+`functions/src/runtime-region.ts` and read by the client through
+`NEXT_PUBLIC_FUNCTIONS_REGION` — **if the two disagree every callable 404s.**
 
 Node 22 is the deployed runtime because Node 20 was decommissioned on
 2026-10-31. This machine builds on Node 20.20.1, so the build host and the
 target differ; installing Node 22 locally would align them.
+
+### Still one project, not three
+
+`docs/06-DEPLOYMENT.md` requires separate dev/staging/prod projects.
+`menu-bukhara` is currently all three, and it now holds live menu data and
+working QR tokens. Create `menu-bukhara-staging` and `menu-bukhara-prod` before
+the pilot, so that a developer machine cannot reach live tables.
 
 ### Finishing the App Hosting deploy
 
@@ -86,7 +110,7 @@ App Hosting has no African region. Available locations are `asia-east1`,
 `asia-southeast1`, `europe-west4`, `us-central1`, `us-east4`, `us-east5`;
 **`europe-west4`** is the closest usable one for Southern Africa. This only
 affects delivery of the initial HTML, which is CDN-cached — the ordering path
-runs browser → `africa-south1` either way.
+runs browser to `africa-south1` either way.
 
 1. Push the repository to GitHub (private — it carries table and QR tooling).
 2. Then, in a real terminal:
@@ -99,25 +123,21 @@ firebase apphosting:backends:create \
   --app 1:642414941918:web:d1868c9e6eb4936e86944f
 ```
 
-It will ask to authorise GitHub, then which repository and branch to roll out
-from. `apphosting.yaml` in the repository root already carries the build and
-runtime configuration, so no further input is needed.
+`apphosting.yaml` already carries the build and runtime configuration.
 
 3. Afterwards, point `NEXT_PUBLIC_BASE_URL` in `apphosting.yaml` at the real
-   backend URL and redeploy **before minting any QR codes** — that value is
-   baked into every QR payload (`${BASE_URL}/t/<token>`), so codes printed
-   against the wrong origin are dead paper.
+   backend URL and redeploy **before minting any QR codes for print** — that
+   value is baked into every QR payload (`${BASE_URL}/t/<token>`), so codes
+   printed against the wrong origin are dead paper. The two tables provisioned
+   so far point at `http://localhost:3000` and will need rotating.
 
-### Remaining console steps
+## Running it locally against the live project
 
-These cannot be done from this repository:
+`.env.local` has `NEXT_PUBLIC_USE_EMULATORS=false`, so `npm run dev` talks to
+the deployed backend. Test accounts and the table URLs are in
+`.local/test-credentials.txt`, which is gitignored.
 
-- **App Check** -> register the web app with the **reCAPTCHA v3** provider, and
-  put the site key in `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` (both `.env.local`
-  and `apphosting.yaml`). Nothing works in a browser until this is done.
-- **Authentication** -> enable the Email/Password provider, for staff sign-in.
-- **Storage** -> "Get Started" to create the default bucket, then
-  `npm run deploy:rules` to push `storage.rules`.
+To go back to the emulator, set `NEXT_PUBLIC_USE_EMULATORS=true`.
 
 ## Local toolchain
 

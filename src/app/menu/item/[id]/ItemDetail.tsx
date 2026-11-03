@@ -79,7 +79,7 @@ export default function ItemDetail({itemId}: {itemId: string}) {
       <BackLink href={`/menu/category/${item.categoryId}`}>Back to dishes</BackLink>
 
       <article className="card">
-        <Photo />
+        <Photo src={item.primaryImagePath} alt={item.name} priority />
         <div style={{padding: 16}}>
           <div className="between">
             <h2 style={{margin: 0, fontSize: 20}}>{item.name}</h2>

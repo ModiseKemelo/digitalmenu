@@ -8,7 +8,7 @@ import {getAuth, connectAuthEmulator, type Auth} from 'firebase/auth';
 import {getFirestore, connectFirestoreEmulator, type Firestore} from 'firebase/firestore';
 import {getFunctions, connectFunctionsEmulator, type Functions} from 'firebase/functions';
 import {getStorage, connectStorageEmulator, type FirebaseStorage} from 'firebase/storage';
-import {initializeAppCheck, ReCaptchaV3Provider} from 'firebase/app-check';
+import {initializeAppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider} from 'firebase/app-check';
 
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -23,12 +23,16 @@ export const RESTAURANT_ID = process.env.NEXT_PUBLIC_RESTAURANT_ID ?? 'bukhara';
 const useEmulators = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true';
 
 /**
- * reCAPTCHA v3 site key for App Check. The callables set
- * `enforceAppCheck: true` whenever they are not running under the emulator, so
- * against a live project this key is required: without it every call is
- * rejected before it reaches our code.
+ * App Check site key. The callables set `enforceAppCheck: true` whenever they
+ * are not running under the emulator, so against a live project this key is
+ * required: without it every call is rejected before it reaches our code.
+ *
+ * `menu-bukhara` is registered with the **reCAPTCHA Enterprise** provider, so
+ * that is the default. The provider must match what is registered in the
+ * console, or attestation fails with no useful error in the browser.
  */
-const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY;
+const appCheckSiteKey = process.env.NEXT_PUBLIC_APP_CHECK_SITE_KEY;
+const appCheckProvider = process.env.NEXT_PUBLIC_APP_CHECK_PROVIDER ?? 'enterprise';
 
 /** Must match REGION in functions/src/runtime.ts, or every call 404s. */
 const FUNCTIONS_REGION = process.env.NEXT_PUBLIC_FUNCTIONS_REGION ?? 'africa-south1';
@@ -61,7 +65,10 @@ export function firebase() {
       (globalThis as {FIREBASE_APPCHECK_DEBUG_TOKEN?: string}).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
     }
     initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(appCheckSiteKey),
+      provider:
+        appCheckProvider === 'v3'
+          ? new ReCaptchaV3Provider(appCheckSiteKey)
+          : new ReCaptchaEnterpriseProvider(appCheckSiteKey),
       isTokenAutoRefreshEnabled: true,
     });
   }

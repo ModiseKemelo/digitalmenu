@@ -3,6 +3,9 @@
  *
  *   npm run qr:provision -- --tables templates/tables.csv --out .local/qr
  *
+ * Pass --print-urls to also write urls.txt, the same table credentials in plain
+ * text, for testing in a desktop browser that cannot scan a code.
+ *
  * The raw token is shown exactly once, here, because Firestore stores only its
  * SHA-256 hash. The output directory holds live table credentials: it is
  * gitignored, and the printed labels should be treated like keys to the tables.
@@ -17,15 +20,16 @@ import {parseCsv, parseBoolean} from './csv';
 const mintToken = () => randomBytes(32).toString('base64url');
 const hashToken = (token: string) => createHash('sha256').update(token, 'utf8').digest('hex');
 
-type Args = {tables: string; out: string; rotate: boolean};
+type Args = {tables: string; out: string; rotate: boolean; printUrls: boolean};
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = {tables: 'templates/tables.csv', out: '.local/qr', rotate: false};
+  const args: Args = {tables: 'templates/tables.csv', out: '.local/qr', rotate: false, printUrls: false};
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     if (flag === '--tables') args.tables = argv[++i];
     else if (flag === '--out') args.out = argv[++i];
     else if (flag === '--rotate') args.rotate = true;
+    else if (flag === '--print-urls') args.printUrls = true;
   }
   return args;
 }
@@ -78,7 +82,11 @@ async function main(): Promise<void> {
         {
           label: row.label || tableId,
           enabled: parseBoolean(row.enabled, true),
-          activeSessionId: existingData ? undefined : null,
+          // Only initialise activeSessionId on a new table. The key is omitted
+          // rather than set to undefined on an existing one: a merge write
+          // rejects undefined outright, and rotating a QR code must never
+          // disturb a dining session that is already open at the table.
+          ...(existingData ? {} : {activeSessionId: null}),
           qrTokenHash: tokenHash,
           qrTokenVersion: version,
           qrRotatedAt: new Date(),
@@ -131,6 +139,17 @@ ${cards}
 </html>
 `,
     );
+    if (args.printUrls) {
+      // Opt-in, for testing in a desktop browser where a camera cannot scan.
+      // These URLs are the table credentials in plain text; they land in the
+      // same gitignored directory as the labels and deserve the same care.
+      writeFileSync(
+        join(args.out, 'urls.txt'),
+        `${printable.map(({tableId, label, url}) => `${tableId}\t${label}\t${url}`).join('\n')}\n`,
+      );
+      console.log(`\nWrote urls.txt — plain-text table credentials, for testing only.`);
+    }
+
     console.log(`\nWrote ${printable.length} QR label(s) and qr-sheet.html to ${args.out}`);
     console.log('That directory contains live table credentials — do not commit it.');
   }

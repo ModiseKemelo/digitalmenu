@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run src",
     "emulators": "firebase emulators:start",
+    "menu:images": "tsx scripts/upload-menu-images.ts",
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
     "test:unit": "vitest run src",
     "test:emulator": "firebase emulators:exec --project bukhara-emulator-test --only firestore,auth,functions \"vitest run --config vitest.integration.config.ts\"",

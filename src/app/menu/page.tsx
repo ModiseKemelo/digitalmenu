@@ -37,7 +37,7 @@ export default function MenuPage() {
         <section className="gridcards" style={{marginTop: 4}}>
           {categories.map((category) => (
             <Link key={category.id} href={`/menu/category/${category.id}`} className="card" style={{textDecoration: 'none'}}>
-              <Photo />
+              <Photo src={category.coverImagePath} alt="" />
               <div style={{padding: 14}}>
                 <h2 style={{margin: 0, fontSize: 19}}>{category.name}</h2>
                 <p className="muted small" style={{margin: '6px 0 0'}}>

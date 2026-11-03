@@ -144,6 +144,14 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
   text-transform: uppercase;
 }
 
+/* A photo that actually has an image in it: the placeholder hatching would
+   otherwise show through while the image loads. */
+.photo-filled {
+  position: relative;
+  background: #ece5d4;
+  overflow: hidden;
+}
+
 /* Sticky cart bar on guest screens. */
 .cartbar {
   position: fixed;

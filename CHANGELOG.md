@@ -3,15 +3,35 @@
 ## Unreleased
 
 ### Added
+- The Bukhara menu: 16 categories and 155 items transcribed from the supplied
+  menu scans into `data/`, imported and published. Prices are stored as integer
+  thebe (P98 -> 9800). Ambiguous rows carry a `CONFIRM:` note; the whole file
+  needs checking against the printed menu before launch.
+- Menu photography rendered in the UI. `Photo` now takes a `src` and uses
+  `next/image`; stand-in images were sourced from Wikimedia Commons and
+  uploaded to our own public Storage bucket via `npm run menu:images`.
+- Live test access: two provisioned tables with QR tokens, and admin and waiter
+  accounts. Credentials are written to the gitignored `.local/`.
+- `scripts/cli-credential.ts` — derives application default credentials from
+  the local Firebase CLI login, so the provisioning scripts can reach a live
+  project without a service-account key file on disk.
+- `--print-urls` on table provisioning, writing the table URLs in plain text to
+  the same gitignored directory as the labels, for browser testing.
 - Dedicated Firebase project `menu-bukhara`, replacing the shared `ashok-eatery`
   tenancy. Firestore database, rules, indexes and all 11 callables are deployed.
-- App Check on the client (`firebase/app-check`, reCAPTCHA v3), gated on
-  `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY`. The callables already enforced App Check
+- App Check on the client (`firebase/app-check`, reCAPTCHA Enterprise), gated
+  on `NEXT_PUBLIC_APP_CHECK_SITE_KEY`. The callables already enforced App Check
   outside the emulator, so without this every deployed call was rejected before
   reaching our code; the guest and staff entry points now fail with a clear
   message instead of an opaque error when the key is absent.
 - `apphosting.yaml` — Firebase App Hosting build and runtime configuration.
 - Git repository initialised; App Hosting rolls out from a git branch.
+
+### Fixed
+- Table QR rotation wrote `activeSessionId: undefined`, which Firestore rejects
+  outright, so rotating a code on an existing table always failed. The key is
+  now omitted instead, which also guarantees rotation cannot disturb a dining
+  session already open at that table.
 
 ### Changed
 - Functions and Firestore moved to **`africa-south1`** (Johannesburg) from the

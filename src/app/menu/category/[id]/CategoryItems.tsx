@@ -47,7 +47,7 @@ export default function CategoryItems({categoryId}: {categoryId: string}) {
       <section className="gridcards">
         {visible.map((item) => (
           <article key={item.id} className="card">
-            <Photo />
+            <Photo src={item.primaryImagePath} alt="" />
             <div style={{padding: 14}}>
               <div className="between">
                 <h2 style={{margin: 0, fontSize: 18}}>{item.name}</h2>
