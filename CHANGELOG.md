@@ -1,10 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Dedicated Firebase project `menu-bukhara`, replacing the shared `ashok-eatery`
+  tenancy. Firestore database, rules, indexes and all 11 callables are deployed.
+- App Check on the client (`firebase/app-check`, reCAPTCHA v3), gated on
+  `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY`. The callables already enforced App Check
+  outside the emulator, so without this every deployed call was rejected before
+  reaching our code; the guest and staff entry points now fail with a clear
+  message instead of an opaque error when the key is absent.
+- `apphosting.yaml` — Firebase App Hosting build and runtime configuration.
+- Git repository initialised; App Hosting rolls out from a git branch.
+
+### Changed
+- Functions and Firestore moved to **`africa-south1`** (Johannesburg) from the
+  `us-central1` default, cutting roughly 200ms from every order and status
+  change. The region lives in `functions/src/runtime-region.ts` and reaches the
+  client through `NEXT_PUBLIC_FUNCTIONS_REGION`; the two must agree or every
+  callable 404s. Firestore's location is permanent, so this was settled before
+  the first deploy.
+- Functions runtime Node 20 -> Node 22; Node 20 was decommissioned 2026-10-31
+  and deploys were refused.
+
 ## 0.2.0 — 2026-11-03
 
 Implemented the secure ordering core, the guest and staff interfaces, and the
 provisioning tooling. **Still not production ready**: no approved menu or
-photographs, no dedicated Firebase project, and no staff UAT or sign-off. See
+photographs, and no staff UAT or sign-off. See
 TRACKING.md for per-task status and evidence.
 
 ### Server (Cloud Functions)

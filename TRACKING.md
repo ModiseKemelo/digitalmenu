@@ -30,9 +30,24 @@ npm run test:emulator   # callable / transaction integration tests
 - [x] `npm run lint` — clean, 0 errors 0 warnings
 - [x] `npm run build` — 16 routes compiled; `npm run build:functions` — clean
 - [x] Emulator suite launches and runs tests — evidence: rules 16/16, integration 43/43
-- [ ] **Separate dev/staging/prod Firebase projects** — NOT done. Currently reusing the
-      shared `ashok-eatery` project; see the tenancy warning in docs/11-FIREBASE-SETUP.md
-- [ ] Node 22 LTS — this machine runs Node 20.20.1 (works, but not the documented version)
+- [x] **Dedicated Firebase project** — `menu-bukhara` (642414941918), web app registered,
+      Blaze plan active (confirmed: API enablement succeeded)
+- [x] Firestore database created in `africa-south1` — the nearest region to Gaborone;
+      **permanent**, a Firestore location cannot be moved after creation
+- [x] Rules and indexes deployed — evidence: "released rules firestore.rules to
+      cloud.firestore", "deployed indexes ... successfully for (default) database"
+- [x] All 11 callables deployed to `africa-south1` on Node 22 — evidence: 11 × "Successful
+      create operation"
+- [ ] **Separate staging/prod projects** — NOT done. `menu-bukhara` is currently dev,
+      staging and prod at once; docs/06-DEPLOYMENT.md requires three
+- [ ] **App Hosting front end** — NOT deployed. Backend creation needs an interactive
+      terminal and a browser GitHub authorisation; see docs/11-FIREBASE-SETUP.md
+- [ ] **Firebase Storage not initialised** — needs one "Get Started" click in the console
+      before `npm run deploy:rules` can push `storage.rules`
+- [ ] **App Check site key** — not registered, so the deployed callables reject every
+      request; the app cannot work in a browser until this is set
+- [ ] Node 22 LTS locally — this machine runs Node 20.20.1. The deployed runtime is
+      Node 22 (Node 20 was decommissioned on 2026-10-31), so build host and target differ
 
 ### M1 — Branding and data — [~] tooling and UI done, data outstanding
 - [ ] **Obtain approved menu CSV, images, allergen/options data, logo, table labels**
@@ -142,10 +157,23 @@ deployed.
 - **Actual Bukhara menu, pricing and photographs not supplied** — blocks M1 and
   publishing any item (the importer refuses to publish a photoless item).
 - **Brand assets, exact table labels, staff names/roles and domain pending.**
-- **No dedicated Firebase project.** The app points at the shared `ashok-eatery`
-  project and no web app is registered there, so two values in `.env.local` are
-  blank and a browser cannot reach the live project. Deploying this repository's
-  rules to that project would break the other app that uses it.
+- **App Check is not registered, so the deployed backend rejects everything.**
+  The callables set `enforceAppCheck: true` outside the emulator. Until a
+  reCAPTCHA v3 site key is in `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` (and in
+  `apphosting.yaml`), every call fails before it reaches our code. One console
+  step; see docs/11-FIREBASE-SETUP.md.
+- **App Hosting front end not deployed.** `firebase apphosting:backends:create`
+  cannot run non-interactively — it needs a TTY and a browser authorisation to
+  connect a GitHub repository through Developer Connect. The repository is
+  committed locally but has no remote, and `gh` is not installed on this
+  machine. App Hosting also has no African region; `europe-west4` is the
+  closest usable one, which affects only initial HTML delivery because the data
+  path stays in `africa-south1`.
+- **Firebase Storage is not initialised** — the default bucket needs one
+  "Get Started" click in the console, after which `storage.rules` deploys.
+- **Only one Firebase project.** `menu-bukhara` is dev, staging and prod at
+  once. Create separate projects before the pilot so a developer machine cannot
+  reach live tables.
 - **Local toolchain is pinned to workarounds**: JDK 11 + Firebase CLI 13, with
   emulator ports moved off the defaults. Installing JDK 21 and the current CLI
   would remove this.

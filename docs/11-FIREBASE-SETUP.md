@@ -39,28 +39,85 @@ would get an opaque failure on scanning a QR code.
 
 The client initialises App Check with reCAPTCHA v3 when
 `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` is set, and both entry points refuse to
-start with a clear message when it is not. To finish the wiring:
-
-1. Firebase console -> App Check -> register the web app with the
-   **reCAPTCHA v3** provider.
-2. Paste the site key into `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` in `.env.local`.
-3. For a developer machine, add a debug token (console -> App Check -> Manage
-   debug tokens) and set `NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN`. Never set that in
-   production.
+start with a clear message when it is not. See "Remaining console steps" below
+for the registration. For a developer machine, add a debug token (console ->
+App Check -> Manage debug tokens) and set `NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN`;
+never set that in production.
 
 Leave enforcement on. Turning it off in `runtime.ts` would expose the guest
 callables — which are reachable with only a QR capability — to scripted abuse.
 
-### Services to enable in the console
+## What is deployed
 
-None of these can be set from this repository:
+Deployed to `menu-bukhara` on 2026-11-03:
 
-- **Authentication** -> Email/Password provider (staff sign-in).
-- **Cloud Firestore** -> create the database, `africa-south1` or the nearest
-  region to Gaborone. Functions are pinned to `us-central1`; moving them closer
-  is a latency win worth taking before launch.
-- **Cloud Storage** -> default bucket (menu photographs).
-- **Blaze plan** — Cloud Functions v2 requires it.
+| Component | State |
+|---|---|
+| Firestore database | created, **`africa-south1`** (permanent — a location cannot be moved) |
+| Firestore rules and indexes | deployed |
+| Cloud Functions | all 11 callables, `africa-south1`, Node 22 |
+| Firebase Storage | **not initialised** — needs one "Get Started" click in the console |
+| Front end (App Hosting) | **not deployed** — see below |
+| App Check | **not registered** — the deployed callables reject every request |
+
+Billing is Blaze, confirmed: the CLI was able to enable services, which the
+Spark plan refuses.
+
+### Region choice
+
+Functions and Firestore are both in `africa-south1` (Johannesburg), the nearest
+Google region to Gaborone; `us-central1` adds roughly 200ms to every order and
+status change. The region is set once in `functions/src/runtime-region.ts` and
+read by the client through `NEXT_PUBLIC_FUNCTIONS_REGION` — **if the two
+disagree every callable 404s.**
+
+Node 22 is the deployed runtime because Node 20 was decommissioned on
+2026-10-31. This machine builds on Node 20.20.1, so the build host and the
+target differ; installing Node 22 locally would align them.
+
+### Finishing the App Hosting deploy
+
+`firebase apphosting:backends:create` cannot be scripted: it requires an
+interactive terminal and a browser authorisation to link a GitHub repository
+through Developer Connect. The repository is committed locally but has no
+remote, and `gh` is not installed here.
+
+App Hosting has no African region. Available locations are `asia-east1`,
+`asia-southeast1`, `europe-west4`, `us-central1`, `us-east4`, `us-east5`;
+**`europe-west4`** is the closest usable one for Southern Africa. This only
+affects delivery of the initial HTML, which is CDN-cached — the ordering path
+runs browser → `africa-south1` either way.
+
+1. Push the repository to GitHub (private — it carries table and QR tooling).
+2. Then, in a real terminal:
+
+```bash
+export PATH="/home/max/.local/firebase-cli/node_modules/.bin:$PATH"
+firebase apphosting:backends:create \
+  --project menu-bukhara \
+  --location europe-west4 \
+  --app 1:642414941918:web:d1868c9e6eb4936e86944f
+```
+
+It will ask to authorise GitHub, then which repository and branch to roll out
+from. `apphosting.yaml` in the repository root already carries the build and
+runtime configuration, so no further input is needed.
+
+3. Afterwards, point `NEXT_PUBLIC_BASE_URL` in `apphosting.yaml` at the real
+   backend URL and redeploy **before minting any QR codes** — that value is
+   baked into every QR payload (`${BASE_URL}/t/<token>`), so codes printed
+   against the wrong origin are dead paper.
+
+### Remaining console steps
+
+These cannot be done from this repository:
+
+- **App Check** -> register the web app with the **reCAPTCHA v3** provider, and
+  put the site key in `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` (both `.env.local`
+  and `apphosting.yaml`). Nothing works in a browser until this is done.
+- **Authentication** -> enable the Email/Password provider, for staff sign-in.
+- **Storage** -> "Get Started" to create the default bucket, then
+  `npm run deploy:rules` to push `storage.rules`.
 
 ## Local toolchain
 
@@ -103,6 +160,9 @@ recommended fix before deployment work begins.
 | `npm run import:menu` | import the approved menu CSVs |
 | `npm run qr:provision` | provision tables, mint QR tokens, write the print sheet |
 | `npm run staff:provision` | create or deactivate a staff account |
+| `npm run deploy:rules` | push Firestore rules, indexes and storage rules |
+| `npm run deploy:functions` | build and deploy the callables |
+| `firebase apphosting:rollouts:create <backend> -b main` | redeploy the front end |
 
 The provisioning scripts refuse to write to a live project unless
 `I_UNDERSTAND_THIS_WRITES_TO_A_REAL_PROJECT=yes` is set; otherwise point them at
