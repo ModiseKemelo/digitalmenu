@@ -461,3 +461,32 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; c
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---- Printable table QR label ---------------------------------------- */
+.qr-card {
+  border: 2px solid var(--brand, #602b35);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+  background: #fff;
+  max-width: 360px;
+}
+.qr-card h2 {
+  margin: 0 0 12px;
+  color: var(--brand, #602b35);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 18px;
+}
+.qr-card img { width: 100%; height: auto; max-width: 300px; }
+.qr-caption { margin: 12px 0 0; font-size: 13px; color: var(--muted, #6b655f); }
+
+/* Printing a label must produce the label and nothing else: no navigation,
+   no surrounding admin screen. */
+@media print {
+  body * { visibility: hidden; }
+  .qr-print, .qr-print * { visibility: visible; }
+  .qr-print { position: absolute; inset: 0; margin: 0 auto; }
+  .qr-actions { display: none; }
+  .qr-card { border-width: 3px; page-break-inside: avoid; }
+}

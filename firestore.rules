@@ -91,5 +91,16 @@ service cloud.firestore {
         allow read, write: if false;
       }
     }
+
+    // The staff board watches every open order across all tables with a
+    // collection-group query. Rules for a collection group are NOT inherited
+    // from the nested path above: a query over the `orders` group is only
+    // authorized by a rule matching the group itself, so without this the
+    // live feed is denied outright. Each order carries its own restaurantId,
+    // which is what decides who may read it.
+    match /{path=**}/orders/{orderId} {
+      allow read: if staff(resource.data.restaurantId);
+      allow write: if false;
+    }
   }
 }

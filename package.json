@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run src",
     "emulators": "firebase emulators:start",
+    "menu:prune": "tsx scripts/prune-menu.ts",
     "menu:images": "tsx scripts/upload-menu-images.ts",
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
     "test:unit": "vitest run src",

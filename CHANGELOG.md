@@ -3,6 +3,36 @@
 ## Unreleased
 
 ### Added
+- The real Bukhara menu, parsed from `docs/Bukhara Main Menu - 18th Aug.pdf`:
+  190 items across 18 categories, replacing the earlier transcription from
+  photographs. Sections that transcription never had are now present —
+  Platters, Salads, Trammezini & Ciabatta, the Chaap range, Tswana Corner and
+  Dessert Cocktails. Prices moved too (Chicken Lollipops P98 -> P109, Butter
+  Chicken P119 -> P138).
+- `npm run menu:prune` — deletes menu documents absent from the intake CSVs, so
+  a dish dropped from the menu cannot stay published. Importing alone is a
+  merge and would leave it behind.
+- Printable QR labels in the admin screen. A table's code is a key to that
+  table, so only its hash is stored and it can never be shown twice; a damaged
+  label is replaced by issuing a new code, which is now rendered as a real QR
+  with a print layout rather than printed as a bare URL.
+
+### Fixed
+- The staff live order feed was denied outright against the deployed project.
+  It uses a collection-group query over `orders`, and Firestore does not apply
+  nested-path rules to collection groups — only a rule matching the group
+  itself authorises them. The rules suite never exercised a collection-group
+  query, so it passed over this.
+- `rotateTableQrToken` returned QR payloads pointing at `http://localhost:3000`
+  from the deployed function, because BASE_URL fell back to a development
+  default. Codes printed from those would have been dead paper.
+- Menu photographs did not render once deployed. Firebase Hosting's framework
+  integration ships no `next.config` to the server bundle, so `/_next/image`
+  ran with default settings and refused every remote URL with "url parameter is
+  not allowed" — working locally and failing only in production. Image
+  optimization is now resolved at build time instead.
+
+### Added
 - The Bukhara menu: 16 categories and 155 items transcribed from the supplied
   menu scans into `data/`, imported and published. Prices are stored as integer
   thebe (P98 -> 9800). Ambiguous rows carry a `CONFIRM:` note; the whole file

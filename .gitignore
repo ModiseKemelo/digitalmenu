@@ -10,3 +10,8 @@ service-account*.json
 # Local provisioning output: live QR tokens and table credentials.
 .local/
 tsconfig.tsbuildinfo
+
+# Source menu artwork: hundreds of MB of print-resolution PDF. Kept on disk,
+# not in git; data/ holds what was parsed out of it.
+docs/*.pdf
+*:Zone.Identifier

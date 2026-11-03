@@ -13,14 +13,21 @@ export const db = getFirestore();
 export {FieldValue, Timestamp};
 
 export const RESTAURANT_ID = process.env.RESTAURANT_ID ?? 'bukhara';
-export const BASE_URL = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
-
 /**
  * App Check is enforced everywhere except under the emulator, where no
  * attestation provider exists. It must never be disabled in a deployed
  * environment; see docs/04-SECURITY-AND-DATA.md.
  */
 export const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+
+/**
+ * Origin baked into every QR payload (`${BASE_URL}/t/<token>`). A code minted
+ * against the wrong origin is dead paper, so the deployed default must be the
+ * real site rather than localhost; override with PUBLIC_BASE_URL when the
+ * domain changes.
+ */
+export const BASE_URL =
+  process.env.PUBLIC_BASE_URL ?? (IS_EMULATOR ? 'http://localhost:3000' : 'https://menu-bukhara.web.app');
 
 export {REGION};
 

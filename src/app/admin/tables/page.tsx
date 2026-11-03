@@ -12,14 +12,16 @@ import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {api, ApiError} from '@/lib/api';
 import {Notice, Spinner, BackLink} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
+import QrLabel from '@/components/QrLabel';
 
 type TableRow = {id: string; label: string; enabled: boolean; busy: boolean; tokenVersion: number};
+type Issued = {tableId: string; label: string; payload: string};
 
 function Tables() {
   const [tables, setTables] = useState<TableRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [newToken, setNewToken] = useState<{tableId: string; payload: string} | null>(null);
+  const [newToken, setNewToken] = useState<Issued | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -46,13 +48,19 @@ function Tables() {
     void load();
   }, [load]);
 
-  const rotate = async (tableId: string) => {
-    if (!window.confirm(`Replace the QR code for ${tableId}? The current printed code will stop working immediately.`)) return;
+  const rotate = async (tableId: string, label: string) => {
+    if (
+      !window.confirm(
+        `Issue a new QR code for ${label}?\n\nThe code currently on the table stops working immediately, ` +
+          'so only do this if that label is damaged, lost, or being replaced.',
+      )
+    )
+      return;
     setBusyId(tableId);
     setError(null);
     try {
       const result = await api.rotateTableQrToken({tableId});
-      setNewToken({tableId, payload: result.printableQrPayload});
+      setNewToken({tableId, label, payload: result.printableQrPayload});
       await load();
     } catch (failure) {
       setError((failure as ApiError).message);
@@ -68,12 +76,19 @@ function Tables() {
 
       {newToken && (
         <Notice tone="warn">
-          <p style={{margin: '0 0 8px'}}>
-            <strong>New code for {newToken.tableId}.</strong> Print it now — it cannot be shown again.
+          <p style={{margin: '0 0 12px'}}>
+            <strong>New code for {newToken.label}.</strong> Print it now — it cannot be shown again, and the
+            previous label for this table no longer works.
           </p>
-          <code style={{wordBreak: 'break-all', fontSize: 12}}>{newToken.payload}</code>
+          <QrLabel label={newToken.label} tableId={newToken.tableId} payload={newToken.payload} />
         </Notice>
       )}
+
+      <Notice>
+        A table&rsquo;s QR code is a key to that table, so only its SHA-256 hash is stored and a code can never be
+        shown twice. To replace a damaged or missing label, issue a new code here and print it — the old one stops
+        working at once.
+      </Notice>
 
       {!tables && !error && <Spinner label="Loading tables" />}
       {tables && tables.length === 0 && (
@@ -92,8 +107,13 @@ function Tables() {
                 {!table.enabled && ' · out of service'}
               </p>
             </div>
-            <button type="button" className="btn btn-ghost small" onClick={() => void rotate(table.id)} disabled={busyId === table.id}>
-              {busyId === table.id ? 'Replacing…' : 'Replace code'}
+            <button
+              type="button"
+              className="btn btn-ghost small"
+              onClick={() => void rotate(table.id, table.label)}
+              disabled={busyId === table.id}
+            >
+              {busyId === table.id ? 'Issuing…' : 'Issue new code'}
             </button>
           </div>
         ))}

@@ -54,9 +54,14 @@ npm run test:emulator   # callable / transaction integration tests
       Node 22 (Node 20 was decommissioned on 2026-10-31), so build host and target differ
 
 ### M1 — Branding and data — [~] menu loaded, approval outstanding
-- [~] **Menu, prices and allergens** — transcribed from the supplied menu scans into
-      `data/` and imported: 16 categories, 155 items, all published. NOT yet checked
-      against the printed menu; four ambiguous rows are flagged in the notes column
+- [x] **Menu and prices** — parsed from `docs/Bukhara Main Menu - 18th Aug.pdf`
+      (text, not a scan) into `data/`: 18 categories, 190 items. Supersedes the earlier
+      transcription from photographs
+- [~] **Menu sign-off** — five rows carry a `CONFIRM:` note where the page is genuinely
+      ambiguous: Tomahawk, Veg Paneer Sizzler, Schezwan Rice veg/egg, Seekh Kebab and
+      Red Thai Curry. Still needs a read-through against the printed menu
+- [ ] **Allergens** — the PDF does not list them; every item ships with an empty
+      allergen list, which is a safety gap before launch
 - [~] **Photography** — stand-in images sourced from Wikimedia Commons, uploaded to our
       own Storage bucket and rendered in the UI. Not Bukhara's own food
 - [ ] **Logo and brand assets, exact table labels** — still not supplied
@@ -162,12 +167,17 @@ deployed.
 | 10 | Network failures never show false order success | Met (idempotent submit, explicit failure states); not yet tested on a real flaky network |
 
 ## Blockers
-- **The menu is transcribed from supplied photographs and is NOT signed off.**
-  155 items and their prices were read off six scanned menu pages into
-  `data/menu-items.csv`. It must be checked line by line against the printed
-  menu before any guest sees it. Four rows are flagged in the `notes` column
-  where the scan was ambiguous (Seekh Kebab's two prices, Samosa's two prices,
-  the T-bone's bracketed note, and the Veg Paneer Sizzler printed without a P).
+- **The menu needs a sign-off read-through.** 190 items were parsed from the
+  supplied PDF, which is text rather than a scan, so names and prices come from
+  the file itself rather than from reading an image. Five rows are flagged with
+  `CONFIRM:` in the notes column where the page is genuinely ambiguous: the
+  Tomahawk's price is printed above its name, the Veg Paneer Sizzler is printed
+  as `189` without a `P`, Schezwan Rice veg and egg are a pula apart (P98/P99),
+  and Seekh Kebab and Red Thai Curry each print two prices without saying which
+  variant is which.
+- **No allergen data.** The PDF carries none, so every item has an empty
+  allergen list. The guest UI will show nothing where allergens belong. This
+  needs filling before launch.
 - **The photographs are stand-ins, not Bukhara's food.** Every image is a
   generic dish photograph from Wikimedia Commons, matched by dish name and
   uploaded to our own bucket. They are legally reusable but they are not this
