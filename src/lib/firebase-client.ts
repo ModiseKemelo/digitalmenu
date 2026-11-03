@@ -59,10 +59,17 @@ export function firebase() {
   // Must run before the first callable so a token is attached to it. Skipped
   // under the emulator, where the functions do not enforce App Check.
   if (!useEmulators && appCheckSiteKey) {
-    const debugToken = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN;
-    if (debugToken) {
-      // Registered debug tokens let a developer machine call a live project.
-      (globalThis as {FIREBASE_APPCHECK_DEBUG_TOKEN?: string}).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+    // A debug token bypasses attestation entirely, so it must never reach a
+    // production bundle. Next inlines every NEXT_PUBLIC_ value at build time,
+    // and .env.local is read by production builds too — the only thing that
+    // keeps this out of the shipped JavaScript is the NODE_ENV guard, which
+    // the minifier resolves to `false` and eliminates along with the literal.
+    // Do not collapse this into a plain truthiness check.
+    if (process.env.NODE_ENV !== 'production') {
+      const debugToken = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN;
+      if (debugToken) {
+        (globalThis as {FIREBASE_APPCHECK_DEBUG_TOKEN?: string}).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+      }
     }
     initializeAppCheck(app, {
       provider:
