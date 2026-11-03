@@ -9,6 +9,7 @@
  */
 import {useEffect, useState, type ReactNode} from 'react';
 import Link from 'next/link';
+import {UtensilsCrossed, ReceiptText, Wallet} from 'lucide-react';
 import {readGuestSession, type GuestSession} from '@/lib/guest-session';
 import {useCart} from '@/lib/cart';
 import {Money, Notice} from './ui';
@@ -60,14 +61,17 @@ export default function GuestChrome({
               {subtitle}
             </p>
           )}
-          <nav className="row small" style={{marginTop: 16, flexWrap: 'wrap', gap: 14}}>
-            <Link href="/menu" style={{color: 'var(--gold)'}}>
+          <nav className="row small" style={{marginTop: 18, flexWrap: 'wrap', gap: 8}}>
+            <Link href="/menu" className="heronav">
+              <UtensilsCrossed size={15} strokeWidth={2} />
               Menu
             </Link>
-            <Link href="/orders" style={{color: 'var(--gold)'}}>
+            <Link href="/orders" className="heronav">
+              <ReceiptText size={15} strokeWidth={2} />
               My orders
             </Link>
-            <Link href="/bill" style={{color: 'var(--gold)'}}>
+            <Link href="/bill" className="heronav">
+              <Wallet size={15} strokeWidth={2} />
               Bill
             </Link>
           </nav>

@@ -34,19 +34,22 @@ export default function MenuPage() {
       )}
 
       {categories && categories.length > 0 && (
-        <section className="gridcards" style={{marginTop: 4}}>
-          {categories.map((category) => (
-            <Link key={category.id} href={`/menu/category/${category.id}`} className="card" style={{textDecoration: 'none'}}>
-              <Photo src={category.coverImagePath} alt="" />
-              <div style={{padding: 14}}>
-                <h2 style={{margin: 0, fontSize: 19}}>{category.name}</h2>
-                <p className="muted small" style={{margin: '6px 0 0'}}>
-                  {countFor(category.id)} {countFor(category.id) === 1 ? 'dish' : 'dishes'}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </section>
+        <>
+          <p className="sectionlabel">Choose a course</p>
+          <section className="gridcards">
+            {categories.map((category) => (
+              <Link key={category.id} href={`/menu/category/${category.id}`} className="card" style={{textDecoration: 'none'}}>
+                <Photo src={category.coverImagePath} alt="" />
+                <div style={{padding: 15}}>
+                  <h2 style={{margin: 0, fontSize: 20}}>{category.name}</h2>
+                  <p className="muted small" style={{margin: '6px 0 0'}}>
+                    {countFor(category.id)} {countFor(category.id) === 1 ? 'dish' : 'dishes'}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </section>
+        </>
       )}
     </GuestChrome>
   );

@@ -8,6 +8,7 @@
  */
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
+import {Armchair} from 'lucide-react';
 import {collection, getDocs, orderBy, query} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {Notice, Spinner, BackLink} from '@/components/ui';
@@ -49,8 +50,11 @@ function TableList() {
       <section className="gridcards">
         {(tables ?? []).map((table) => (
           <Link key={table.id} href={`/staff/tables/${table.id}`} className="card" style={{padding: 16, textDecoration: 'none'}}>
-            <div className="between">
-              <strong>{table.label}</strong>
+            <div className="row" style={{justifyContent: 'space-between'}}>
+              <span className="row" style={{gap: 10}}>
+                <Armchair size={20} strokeWidth={1.75} style={{color: 'var(--gold-deep)'}} />
+                <strong>{table.label}</strong>
+              </span>
               <span className={`badge ${table.busy ? 'badge-ready' : ''}`}>{table.busy ? 'Seated' : 'Free'}</span>
             </div>
             {!table.enabled && (

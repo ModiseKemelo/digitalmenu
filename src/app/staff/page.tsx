@@ -8,6 +8,7 @@
  */
 import {useEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
+import {ScanLine, Volume2, VolumeX} from 'lucide-react';
 import {collectionGroup, onSnapshot, query, where, orderBy} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {ACTIVE_ORDER_STATUSES, nextStatuses, canRoleTransition} from '@/lib/order-domain';
@@ -149,6 +150,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
         </p>
         <div className="row">
           <Link href="/staff/scan" className="btn btn-ghost small">
+            <ScanLine size={16} strokeWidth={2} />
             Scan a table
           </Link>
           <button
@@ -159,6 +161,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
               if (!soundOn) playTone(); // also unlocks audio on this device
             }}
           >
+            {soundOn ? <Volume2 size={16} strokeWidth={2} /> : <VolumeX size={16} strokeWidth={2} />}
             Sound {soundOn ? 'on' : 'off'}
           </button>
         </div>

@@ -2,6 +2,7 @@
 
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
+import {Search} from 'lucide-react';
 import {fetchPublishedItems, type MenuItem} from '@/lib/menu-data';
 import {Money, Notice, Photo, Spinner, BackLink} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
@@ -29,8 +30,11 @@ export default function CategoryItems({categoryId}: {categoryId: string}) {
       {!items && !error && <Spinner label="Loading dishes" />}
 
       {items && items.length > 0 && (
-        <div>
-          <label htmlFor="dish-search">Search these dishes</label>
+        <div className="searchwrap">
+          <Search size={18} strokeWidth={2} aria-hidden />
+          <label htmlFor="dish-search" className="sr-only">
+            Search these dishes
+          </label>
           <input
             id="dish-search"
             type="search"

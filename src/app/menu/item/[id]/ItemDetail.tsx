@@ -8,6 +8,7 @@
  */
 import {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {Plus, Minus, TriangleAlert} from 'lucide-react';
 import {fetchItem, type MenuItem} from '@/lib/menu-data';
 import {MAX_LINE_QUANTITY} from '@/lib/contracts';
 import {unitPriceWithOptions} from '@/lib/order-domain';
@@ -87,7 +88,8 @@ export default function ItemDetail({itemId}: {itemId: string}) {
           </div>
           {item.description && <p style={{margin: '10px 0 0'}}>{item.description}</p>}
           {item.allergens.length > 0 && (
-            <p className="small muted" style={{margin: '10px 0 0'}}>
+            <p className="small muted" style={{margin: '12px 0 0', display: 'flex', alignItems: 'center', gap: 6}}>
+              <TriangleAlert size={14} strokeWidth={2} />
               Allergens: {item.allergens.join(', ')}
             </p>
           )}
@@ -100,29 +102,34 @@ export default function ItemDetail({itemId}: {itemId: string}) {
         <>
           {options.length > 0 && (
             <section className="card" style={{padding: 16}}>
-              <h3 style={{margin: '0 0 10px', fontSize: 16}}>Choices</h3>
+              <h3 style={{margin: '0 0 12px', fontSize: 17}}>Choices</h3>
               <div className="stack" style={{gap: 8}}>
-                {options.map((option) => (
-                  <label key={option.id} className="row" style={{fontWeight: 400, marginBottom: 0}}>
-                    <input
-                      type="checkbox"
-                      checked={chosen.includes(option.id)}
-                      onChange={() => toggle(option.id)}
-                      disabled={option.available === false}
-                      style={{width: 20, minHeight: 20, margin: 0}}
-                    />
-                    <span style={{flex: 1}}>
-                      {option.name}
-                      {option.available === false && <span className="muted small"> — unavailable</span>}
-                    </span>
-                    {option.priceDeltaMinor !== 0 && (
-                      <span className="small muted">
-                        {option.priceDeltaMinor > 0 ? '+' : '−'}
-                        <Money minor={Math.abs(option.priceDeltaMinor)} />
+                {options.map((option) => {
+                  const selected = chosen.includes(option.id);
+                  return (
+                    <label
+                      key={option.id}
+                      className={`optionchip${selected ? ' optionchip-on' : ''}${option.available === false ? ' optionchip-off' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggle(option.id)}
+                        disabled={option.available === false}
+                      />
+                      <span style={{flex: 1}}>
+                        {option.name}
+                        {option.available === false && <span className="muted small"> — unavailable</span>}
                       </span>
-                    )}
-                  </label>
-                ))}
+                      {option.priceDeltaMinor !== 0 && (
+                        <span className="small muted">
+                          {option.priceDeltaMinor > 0 ? '+' : '−'}
+                          <Money minor={Math.abs(option.priceDeltaMinor)} />
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -145,7 +152,7 @@ export default function ItemDetail({itemId}: {itemId: string}) {
           <div className="between">
             <div className="qty">
               <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Reduce quantity">
-                −
+                <Minus size={16} strokeWidth={2.5} />
               </button>
               <span aria-live="polite">{quantity}</span>
               <button
@@ -153,10 +160,10 @@ export default function ItemDetail({itemId}: {itemId: string}) {
                 onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
                 aria-label="Increase quantity"
               >
-                +
+                <Plus size={16} strokeWidth={2.5} />
               </button>
             </div>
-            <button type="button" className="btn" onClick={addToOrder}>
+            <button type="button" className="btn btn-gold" onClick={addToOrder}>
               Add · <Money minor={unitPriceMinor * quantity} />
             </button>
           </div>

@@ -8,6 +8,7 @@
  * the waiter.
  */
 import {useEffect, useState} from 'react';
+import {ReceiptText, ConciergeBell} from 'lucide-react';
 import {api, ApiError} from '@/lib/api';
 import {readGuestSession} from '@/lib/guest-session';
 import type {GuestSessionView, ServiceRequestType} from '@/lib/contracts';
@@ -77,10 +78,12 @@ export default function BillPage() {
       <Notice>Payment is taken at the table by cash or card. This app does not process payments.</Notice>
 
       <div className="row" style={{flexWrap: 'wrap'}}>
-        <button type="button" className="btn" onClick={() => void request('bill')} disabled={busy}>
+        <button type="button" className="btn btn-gold" onClick={() => void request('bill')} disabled={busy}>
+          <ReceiptText size={17} strokeWidth={2} />
           Request the bill
         </button>
         <button type="button" className="btn btn-ghost" onClick={() => void request('assistance')} disabled={busy}>
+          <ConciergeBell size={17} strokeWidth={2} />
           Call a waiter
         </button>
       </div>

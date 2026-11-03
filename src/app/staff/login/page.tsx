@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
+import {LogIn} from 'lucide-react';
 import {signInWithEmailAndPassword} from 'firebase/auth';
 import {firebase, isFirebaseConfigured, isAppCheckMissing} from '@/lib/firebase-client';
 import {Notice} from '@/components/ui';
@@ -64,6 +65,7 @@ export default function StaffLogin() {
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         <button type="submit" className="btn" disabled={busy}>
+          <LogIn size={17} strokeWidth={2} />
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

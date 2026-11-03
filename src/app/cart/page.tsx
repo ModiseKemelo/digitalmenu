@@ -10,6 +10,7 @@
 import {useRef, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
+import {Minus, Plus, Trash2} from 'lucide-react';
 import {api, ApiError, newIdempotencyKey} from '@/lib/api';
 import {readGuestSession, clearGuestSession} from '@/lib/guest-session';
 import {useCart, toOrderLines} from '@/lib/cart';
@@ -102,14 +103,15 @@ export default function CartPage() {
                 <div className="row" style={{marginTop: 10}}>
                   <div className="qty">
                     <button type="button" onClick={() => cart.setQuantity(index, line.quantity - 1)} aria-label="Reduce quantity">
-                      −
+                      <Minus size={16} strokeWidth={2.5} />
                     </button>
                     <span>{line.quantity}</span>
                     <button type="button" onClick={() => cart.setQuantity(index, line.quantity + 1)} aria-label="Increase quantity">
-                      +
+                      <Plus size={16} strokeWidth={2.5} />
                     </button>
                   </div>
                   <button type="button" className="btn btn-ghost small" onClick={() => cart.remove(index)}>
+                    <Trash2 size={15} strokeWidth={2} />
                     Remove
                   </button>
                 </div>
@@ -130,7 +132,7 @@ export default function CartPage() {
           {error && <Notice tone="error">{error}</Notice>}
           {submitting && <Spinner label="Sending your order" />}
 
-          <button type="button" className="btn" onClick={submit} disabled={submitting} style={{width: '100%'}}>
+          <button type="button" className="btn btn-gold" onClick={submit} disabled={submitting} style={{width: '100%'}}>
             {submitting ? 'Sending…' : 'Place order'}
           </button>
         </>

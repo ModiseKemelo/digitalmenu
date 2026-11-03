@@ -56,6 +56,8 @@ export default function OrdersPage() {
         </Notice>
       )}
 
+      {view && view.orders.length > 0 && <p className="sectionlabel">Your orders</p>}
+
       {view?.orders.map((order) => (
         <section key={order.orderId} className="card" style={{padding: 16}}>
           <div className="between">

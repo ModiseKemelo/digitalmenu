@@ -245,7 +245,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
             <label htmlFor="reference">Reference (till or card authorisation)</label>
             <input id="reference" value={reference} onChange={(event) => setReference(event.target.value)} />
           </div>
-          <button type="button" className="btn" onClick={() => void recordPayment()} disabled={busy}>
+          <button type="button" className="btn btn-gold" onClick={() => void recordPayment()} disabled={busy}>
             Record payment
           </button>
           <p className="small muted" style={{margin: 0}}>
