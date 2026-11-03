@@ -9,10 +9,12 @@
  */
 import {useEffect, useState, type ReactNode} from 'react';
 import Link from 'next/link';
-import {UtensilsCrossed, ReceiptText, Wallet} from 'lucide-react';
+import {Bell, Menu as MenuIcon, ReceiptText, ShoppingBag} from 'lucide-react';
+import {usePathname} from 'next/navigation';
 import {readGuestSession, type GuestSession} from '@/lib/guest-session';
 import {useCart} from '@/lib/cart';
 import {Money, Notice} from './ui';
+import Brand from './Brand';
 
 export default function GuestChrome({
   title,
@@ -28,20 +30,32 @@ export default function GuestChrome({
   const [session, setSession] = useState<GuestSession | null>(null);
   const [checked, setChecked] = useState(false);
   const cart = useCart();
+  const pathname = usePathname();
 
   useEffect(() => {
     setSession(readGuestSession());
     setChecked(true);
   }, []);
 
+  if (!checked) {
+    return (
+      <main className="guest-shell">
+        <div className="guest-brandbar"><Brand /></div>
+        <div className="guest-session-loading" role="status">Opening your table…</div>
+      </main>
+    );
+  }
+
   if (checked && !session) {
     return (
-      <main className="shell">
-        <header className="hero">
-          <p className="eyebrow">Bukhara Restaurant</p>
-          <h1 style={{margin: '8px 0 0', fontSize: 28}}>Scan your table code</h1>
+      <main className="guest-shell">
+        <div className="guest-brandbar"><Brand /></div>
+        <header className="guest-hero compact">
+          <p className="eyebrow">Secure table access</p>
+          <h1>Scan your table code</h1>
+          <p>Your table code safely connects this phone to your dining session.</p>
         </header>
-        <div style={{marginTop: 20}}>
+        <div className="guest-content">
           <Notice tone="warn">
             Your table session has ended or expired. Please scan the QR code on your table again to see the menu and order.
           </Notice>
@@ -52,35 +66,37 @@ export default function GuestChrome({
 
   return (
     <>
-      <main className="shell">
-        <header className="hero">
-          <p className="eyebrow">Bukhara Restaurant{session ? ` · ${session.tableLabel}` : ''}</p>
-          <h1 style={{margin: '8px 0 0', fontSize: 28}}>{title}</h1>
-          {subtitle && (
-            <p className="small" style={{margin: '10px 0 0', opacity: 0.85}}>
-              {subtitle}
-            </p>
-          )}
-          <nav className="row small" style={{marginTop: 18, flexWrap: 'wrap', gap: 8}}>
-            <Link href="/menu" className="heronav">
-              <UtensilsCrossed size={15} strokeWidth={2} />
-              Menu
-            </Link>
-            <Link href="/orders" className="heronav">
-              <ReceiptText size={15} strokeWidth={2} />
-              My orders
-            </Link>
-            <Link href="/bill" className="heronav">
-              <Wallet size={15} strokeWidth={2} />
-              Bill
-            </Link>
-          </nav>
+      <main className="guest-shell">
+        <div className="guest-brandbar">
+          <Brand />
+          {session && <span className="table-pill">{session.tableLabel}</span>}
+        </div>
+        <header className="guest-hero">
+          <p className="eyebrow">{session ? `${session.tableLabel} · Dining menu` : 'Bukhara Restaurant'}</p>
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
         </header>
-        <div className="stack" style={{marginTop: 20}}>{children}</div>
+        <div className="guest-content">{children}</div>
       </main>
 
+      <nav className="guest-dock" aria-label="Guest navigation">
+        <Link href="/menu" className={pathname.startsWith('/menu') ? 'active' : ''}>
+          <MenuIcon size={20} /><span>Menu</span>
+        </Link>
+        <Link href="/orders" className={pathname === '/orders' || pathname.startsWith('/order/') ? 'active' : ''}>
+          <ReceiptText size={20} /><span>Orders</span>
+        </Link>
+        <Link href="/bill" className={pathname === '/bill' ? 'active' : ''}>
+          <Bell size={20} /><span>Service</span>
+        </Link>
+        <Link href="/cart" className={pathname === '/cart' ? 'active' : ''}>
+          <span className="dock-cart-icon"><ShoppingBag size={20} />{cart.count > 0 && <b>{cart.count}</b>}</span>
+          <span>Cart</span>
+        </Link>
+      </nav>
+
       {!hideCartBar && cart.count > 0 && (
-        <div className="cartbar">
+        <div className="cartbar guest-cartbar">
           <div className="inner">
             <div style={{flex: 1}}>
               <p className="small muted" style={{margin: 0}}>

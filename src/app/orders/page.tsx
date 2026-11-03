@@ -16,6 +16,13 @@ import GuestChrome from '@/components/GuestChrome';
 /** Polling interval: frequent enough to feel live, light enough to be cheap. */
 const REFRESH_MS = 15_000;
 
+function statusStep(status: GuestSessionView['orders'][number]['status']) {
+  if (status === 'served') return 4;
+  if (status === 'ready') return 3;
+  if (status === 'preparing' || status === 'accepted') return 2;
+  return status === 'received' ? 1 : 0;
+}
+
 export default function OrdersPage() {
   const [view, setView] = useState<GuestSessionView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +66,15 @@ export default function OrdersPage() {
       {view && view.orders.length > 0 && <p className="sectionlabel">Your orders</p>}
 
       {view?.orders.map((order) => (
-        <section key={order.orderId} className="card" style={{padding: 16}}>
+        <section key={order.orderId} className="card guest-order-card">
           <div className="between">
             <StatusBadge status={order.status} />
             <Money minor={order.totalMinor} />
+          </div>
+          <div className="status-track" aria-label={`Order status: ${order.status}`}>
+            {['Received', 'Preparing', 'Ready', 'Served'].map((label, index) => (
+              <span key={label} className={statusStep(order.status) > index ? 'done' : ''}><i />{label}</span>
+            ))}
           </div>
           <ul className="stack small" style={{listStyle: 'none', padding: 0, margin: '12px 0 0', gap: 6}}>
             {order.items.map((item, index) => (

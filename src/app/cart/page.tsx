@@ -78,11 +78,12 @@ export default function CartPage() {
         </Notice>
       ) : (
         <>
-          <section className="card">
+          <section className="card cart-lines">
             {cart.lines.map((line, index) => (
               <div
                 key={`${line.itemId}-${index}`}
-                style={{padding: 14, borderBottom: index === cart.lines.length - 1 ? 'none' : '1px solid var(--line)'}}
+                className="cart-line"
+                style={{borderBottom: index === cart.lines.length - 1 ? 'none' : '1px solid var(--line)'}}
               >
                 <div className="between">
                   <div style={{flex: 1}}>
@@ -119,8 +120,8 @@ export default function CartPage() {
             ))}
           </section>
 
-          <div className="between card" style={{padding: 16}}>
-            <strong>Estimated total</strong>
+          <div className="between card order-total">
+            <div><span className="small muted">Restaurant-confirmed total</span><strong>Estimated total</strong></div>
             <strong>
               <Money minor={cart.displayTotalMinor} />
             </strong>
@@ -132,9 +133,11 @@ export default function CartPage() {
           {error && <Notice tone="error">{error}</Notice>}
           {submitting && <Spinner label="Sending your order" />}
 
-          <button type="button" className="btn btn-gold" onClick={submit} disabled={submitting} style={{width: '100%'}}>
-            {submitting ? 'Sending…' : 'Place order'}
-          </button>
+          <div className="checkout-action">
+            <button type="button" className="btn btn-gold" onClick={submit} disabled={submitting}>
+              {submitting ? 'Sending…' : <>Send order to kitchen · <Money minor={cart.displayTotalMinor} /></>}
+            </button>
+          </div>
         </>
       )}
     </GuestChrome>

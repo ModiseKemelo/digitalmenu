@@ -13,6 +13,7 @@ import {collection, getDocs, orderBy, query} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {Notice, Spinner, BackLink} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
+import OperationsShell from '@/components/OperationsShell';
 
 type TableRow = {id: string; label: string; enabled: boolean; busy: boolean};
 
@@ -47,9 +48,9 @@ function TableList() {
       {tables && tables.length === 0 && (
         <Notice tone="warn">No tables have been provisioned yet. Run the table provisioning script.</Notice>
       )}
-      <section className="gridcards">
+      <section className="ops-table-grid">
         {(tables ?? []).map((table) => (
-          <Link key={table.id} href={`/staff/tables/${table.id}`} className="card" style={{padding: 16, textDecoration: 'none'}}>
+          <Link key={table.id} href={`/staff/tables/${table.id}`} className={`card ops-table-card${table.busy ? ' busy' : ''}`}>
             <div className="row" style={{justifyContent: 'space-between'}}>
               <span className="row" style={{gap: 10}}>
                 <Armchair size={20} strokeWidth={1.75} style={{color: 'var(--gold-deep)'}} />
@@ -71,14 +72,10 @@ function TableList() {
 
 export default function StaffScanPage() {
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 26}}>Open a table</h1>
-      </header>
-      <div className="stack" style={{marginTop: 20}}>
+    <OperationsShell area="staff" title="Open a table" subtitle="Select a table to view its active dining session.">
+      <div className="stack">
         <StaffGuard>{() => <TableList />}</StaffGuard>
       </div>
-    </main>
+    </OperationsShell>
   );
 }

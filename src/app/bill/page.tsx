@@ -58,9 +58,10 @@ export default function BillPage() {
       {!view && !error && <Spinner label="Loading your items" />}
 
       {view && (
-        <div className="between card" style={{padding: 16}}>
+        <div className="between card bill-total-card">
           <div>
-            <strong>Your items</strong>
+            <span className="small muted">Your items so far</span>
+            <strong>Personal total</strong>
             <p className="small muted" style={{margin: '4px 0 0'}}>
               Others at your table may have ordered separately.
             </p>
@@ -75,18 +76,19 @@ export default function BillPage() {
       {requested === 'assistance' && <Notice tone="ok">A waiter is on the way to your table.</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
 
-      <Notice>Payment is taken at the table by cash or card. This app does not process payments.</Notice>
-
-      <div className="row" style={{flexWrap: 'wrap'}}>
-        <button type="button" className="btn btn-gold" onClick={() => void request('bill')} disabled={busy}>
-          <ReceiptText size={17} strokeWidth={2} />
-          Request the bill
+      <div className="content-heading compact"><div><p className="sectionlabel">At your table</p><h2>How can we help?</h2></div></div>
+      <div className="service-actions">
+        <button type="button" className="service-action" onClick={() => void request('bill')} disabled={busy}>
+          <span className="feature-icongold"><ReceiptText size={19} /></span>
+          <span><strong>Request the bill</strong><small>A waiter will bring it to your table.</small></span><b>→</b>
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => void request('assistance')} disabled={busy}>
-          <ConciergeBell size={17} strokeWidth={2} />
-          Call a waiter
+        <button type="button" className="service-action" onClick={() => void request('assistance')} disabled={busy}>
+          <span className="feature-icongold"><ConciergeBell size={19} /></span>
+          <span><strong>Call a waiter</strong><small>For assistance with your meal.</small></span><b>→</b>
         </button>
       </div>
+
+      <Notice>Payment is taken at the table by cash or card. This app does not process payments.</Notice>
     </GuestChrome>
   );
 }

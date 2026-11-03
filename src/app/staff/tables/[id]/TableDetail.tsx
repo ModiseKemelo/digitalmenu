@@ -15,6 +15,7 @@ import type {OrderStatus, PaymentMethod} from '@/lib/contracts';
 import {isSettled} from '@/lib/order-domain';
 import {Money, Notice, Spinner, StatusBadge, BackLink} from '@/components/ui';
 import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
+import OperationsShell from '@/components/OperationsShell';
 
 type Session = {
   id: string;
@@ -200,7 +201,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     <>
       <BackLink href="/staff">Live orders</BackLink>
 
-      <section className="card" style={{padding: 16}}>
+      <section className="card session-summary">
         <h2 style={{margin: 0, fontSize: 20}}>{session.tableLabel}</h2>
         <div className="stack small" style={{marginTop: 12, gap: 6}}>
           <div className="between">
@@ -221,7 +222,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
       {message && <Notice tone="ok">{message}</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
 
-      <section className="card" style={{padding: 16}}>
+      <section className="card payment-panel">
         <h3 style={{margin: '0 0 12px', fontSize: 16}}>Record a payment</h3>
         <div className="stack">
           <div>
@@ -315,14 +316,10 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
 
 export default function TableDetail({tableId}: {tableId: string}) {
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant · Table</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 26}}>{tableId}</h1>
-      </header>
-      <div className="stack" style={{marginTop: 20}}>
+    <OperationsShell area="staff" title={tableId} subtitle="Active table session, payments and order history.">
+      <div className="stack">
         <StaffGuard>{(staff) => <Detail tableId={tableId} staff={staff} />}</StaffGuard>
       </div>
-    </main>
+    </OperationsShell>
   );
 }

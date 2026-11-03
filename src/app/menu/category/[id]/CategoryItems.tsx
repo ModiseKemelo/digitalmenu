@@ -19,12 +19,16 @@ export default function CategoryItems({categoryId}: {categoryId: string}) {
   }, [categoryId]);
 
   const term = search.trim().toLowerCase();
+  const categoryName = categoryId
+    .split('-')
+    .map((word) => word === 'veg' ? 'Vegetarian' : word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
   const visible = (items ?? []).filter(
     (item) => !term || item.name.toLowerCase().includes(term) || item.description.toLowerCase().includes(term),
   );
 
   return (
-    <GuestChrome title="Dishes" subtitle="Tap a dish to see the detail and add it to your order.">
+    <GuestChrome title={categoryName} subtitle="Choose a dish to see its details and make it yours.">
       <BackLink href="/menu">All categories</BackLink>
       {error && <Notice tone="error">{error}</Notice>}
       {!items && !error && <Spinner label="Loading dishes" />}
@@ -48,36 +52,22 @@ export default function CategoryItems({categoryId}: {categoryId: string}) {
       {items && items.length === 0 && <Notice tone="warn">No dishes are published in this category yet.</Notice>}
       {items && items.length > 0 && visible.length === 0 && <Notice>No dishes match “{search}”.</Notice>}
 
-      <section className="gridcards">
-        {visible.map((item) => (
-          <article key={item.id} className="card">
-            <Photo src={item.primaryImagePath} alt="" />
-            <div style={{padding: 14}}>
-              <div className="between">
-                <h2 style={{margin: 0, fontSize: 18}}>{item.name}</h2>
-                <Money minor={item.priceMinor} />
-              </div>
-              {item.description && (
-                <p className="muted small" style={{margin: '8px 0 0'}}>
-                  {item.description}
-                </p>
-              )}
-              {!item.available && (
-                <p className="small" style={{margin: '8px 0 0', color: 'var(--danger)'}}>
-                  Unavailable today
-                </p>
-              )}
-              <div style={{marginTop: 12}}>
-                {item.available ? (
-                  <Link href={`/menu/item/${item.id}`} className="btn">
-                    View dish
-                  </Link>
-                ) : (
-                  <button className="btn" disabled>
-                    Unavailable
-                  </button>
-                )}
-              </div>
+      <section className="dish-list">
+        {visible.map((item) => item.available ? (
+          <Link key={item.id} href={`/menu/item/${item.id}`} className="dish-row">
+            <div className="dish-row-art"><Photo src={item.primaryImagePath} alt="" /></div>
+            <div className="dish-row-copy">
+              <div className="between"><h2>{item.name}</h2><Money minor={item.priceMinor} /></div>
+              {item.description && <p>{item.description}</p>}
+              <span>View dish <b aria-hidden>→</b></span>
+            </div>
+          </Link>
+        ) : (
+          <article key={item.id} className="dish-row unavailable">
+            <div className="dish-row-art"><Photo src={item.primaryImagePath} alt="" /></div>
+            <div className="dish-row-copy">
+              <div className="between"><h2>{item.name}</h2><Money minor={item.priceMinor} /></div>
+              <p>{item.description}</p><span>Unavailable today</span>
             </div>
           </article>
         ))}

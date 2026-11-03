@@ -16,6 +16,7 @@ import type {OrderStatus} from '@/lib/contracts';
 import {api, ApiError} from '@/lib/api';
 import {Money, Notice, Spinner, StatusBadge} from '@/components/ui';
 import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
+import OperationsShell from '@/components/OperationsShell';
 
 type LiveOrder = {
   id: string;
@@ -167,6 +168,15 @@ function Dashboard({staff}: {staff: StaffProfile}) {
         </div>
       </div>
 
+      {orders && (
+        <section className="ops-stats">
+          <div className="card"><span>Waiting</span><strong>{orders.filter((order) => order.status === 'received').length.toString().padStart(2, '0')}</strong></div>
+          <div className="card"><span>Preparing</span><strong>{orders.filter((order) => order.status === 'accepted' || order.status === 'preparing').length.toString().padStart(2, '0')}</strong></div>
+          <div className="card"><span>Ready</span><strong>{orders.filter((order) => order.status === 'ready').length.toString().padStart(2, '0')}</strong></div>
+          <div className="card"><span>Active tables</span><strong>{byTable.length.toString().padStart(2, '0')}</strong></div>
+        </section>
+      )}
+
       {unseen > 0 && (
         <button type="button" className="notice notice-warn" style={{textAlign: 'left'}} onClick={() => setUnseen(0)}>
           <strong>
@@ -181,7 +191,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
       {orders && orders.length === 0 && <Notice tone="ok">No orders are waiting. The dining room is clear.</Notice>}
 
       {byTable.map(([tableId, tableOrders]) => (
-        <section key={tableId} className="card" style={{padding: 16}}>
+        <section key={tableId} className="card ops-order-group">
           <div className="between">
             <h2 style={{margin: 0, fontSize: 18}}>{tableId}</h2>
             <Link href={`/staff/tables/${tableId}`} className="small">
@@ -235,14 +245,10 @@ function Dashboard({staff}: {staff: StaffProfile}) {
 
 export default function StaffDashboardPage() {
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 26}}>Live orders</h1>
-      </header>
-      <div className="stack" style={{marginTop: 20}}>
+    <OperationsShell area="staff" title="Live orders" subtitle="Real-time kitchen queue and table service.">
+      <div className="stack">
         <StaffGuard>{(staff) => <Dashboard staff={staff} />}</StaffGuard>
       </div>
-    </main>
+    </OperationsShell>
   );
 }

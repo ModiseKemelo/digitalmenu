@@ -6,6 +6,7 @@ import {LogIn} from 'lucide-react';
 import {signInWithEmailAndPassword} from 'firebase/auth';
 import {firebase, isFirebaseConfigured, isAppCheckMissing} from '@/lib/firebase-client';
 import {Notice} from '@/components/ui';
+import Brand from '@/components/Brand';
 
 export default function StaffLogin() {
   const router = useRouter();
@@ -34,13 +35,18 @@ export default function StaffLogin() {
   };
 
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 26}}>Staff sign-in</h1>
-      </header>
+    <main className="login-shell">
+      <section className="login-art">
+        <Brand inverse />
+        <div><p className="eyebrow">Evening service</p><h1>Beautiful service<br />begins here.</h1>
+        <p>Manage tables, orders and guest requests from one calm, real-time workspace.</p></div>
+        <small>Gaborone · Botswana</small>
+      </section>
 
-      <form className="card stack" style={{padding: 18, marginTop: 20}} onSubmit={submit}>
+      <form className="login-form" onSubmit={submit}>
+        <p className="ops-kicker">Staff access</p>
+        <h2>Welcome back</h2>
+        <p className="muted">Sign in with your restaurant credentials.</p>
         <div>
           <label htmlFor="email">Work email</label>
           <input
@@ -68,6 +74,7 @@ export default function StaffLogin() {
           <LogIn size={17} strokeWidth={2} />
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
+        <p className="login-security">Staff activity is recorded for security and service quality.</p>
       </form>
     </main>
   );

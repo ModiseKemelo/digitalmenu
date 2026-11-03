@@ -9,13 +9,14 @@ import GuestChrome from '@/components/GuestChrome';
 function Confirmation() {
   const orderId = useSearchParams().get('order');
   return (
-    <GuestChrome title="Order placed" hideCartBar>
-      <div className="card" style={{padding: 26, textAlign: 'center'}}>
+    <GuestChrome title="The kitchen has it." subtitle="Sit back and enjoy the evening while we prepare your order." hideCartBar>
+      <div className="card confirmation-card">
         <span className="success-emblem">
           <CheckCircle2 size={34} strokeWidth={1.75} />
         </span>
-        <h2 style={{margin: '16px 0 0', fontSize: 22}}>Thank you</h2>
-        <p className="muted" style={{margin: '8px 0 0'}}>
+        <p className="sectionlabel">Order received</p>
+        <h2>Thank you</h2>
+        <p className="muted">
           Your order is with the restaurant and a waiter will bring it to your table.
         </p>
         {orderId && (
@@ -25,7 +26,7 @@ function Confirmation() {
           </p>
         )}
       </div>
-      <div className="row" style={{flexWrap: 'wrap'}}>
+      <div className="confirmation-actions">
         <Link href="/orders" className="btn">
           Track my order
         </Link>

@@ -1,47 +1,38 @@
 'use client';
 /** Administration home. Each area states plainly whether it is implemented. */
 import Link from 'next/link';
-import {QrCode} from 'lucide-react';
+import {ChartNoAxesCombined, Image as ImageIcon, ListOrdered, QrCode, Settings, Users} from 'lucide-react';
 import {Notice} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
+import OperationsShell from '@/components/OperationsShell';
 
 export default function AdminPage() {
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 26}}>Administration</h1>
-      </header>
-
-      <div className="stack" style={{marginTop: 20}}>
+    <OperationsShell area="admin" title="Restaurant overview" subtitle="Manage Bukhara’s menu, dining room and service team.">
+      <div className="stack">
         <StaffGuard requireAdmin>
           {() => (
             <>
-              <section className="card" style={{padding: 18}}>
-                <div className="row" style={{alignItems: 'flex-start'}}>
-                  <span className="feature-icongold">
-                    <QrCode size={20} strokeWidth={1.75} />
-                  </span>
-                  <div style={{flex: 1}}>
-                    <h2 style={{margin: '0 0 8px', fontSize: 19}}>Tables and QR codes</h2>
-                    <p className="muted small" style={{margin: '0 0 14px'}}>
-                      Review every table and replace a damaged or copied QR code.
-                    </p>
-                    <Link href="/admin/tables" className="btn">
-                      Manage tables
-                    </Link>
-                  </div>
-                </div>
+              <section className="admin-statbar">
+                <div className="card"><span>Configured tables</span><strong>20</strong></div>
+                <div className="card"><span>Menu categories</span><strong>16</strong></div>
+                <div className="card"><span>Restaurant</span><strong>Online</strong></div>
               </section>
-
+              <section className="admin-grid">
+                <Link href="/admin/tables" className="card admin-card"><span className="feature-icongold"><QrCode size={21} /></span><h2>Tables & QR codes</h2><p>Manage dining tables and rotate secure guest access codes.</p><b>Manage tables →</b></Link>
+                <article className="card admin-card muted-card"><span className="feature-icongold"><ListOrdered size={21} /></span><h2>Menu & pricing</h2><p>Publish dishes, update options, pricing and availability.</p><b>Command-line managed</b></article>
+                <article className="card admin-card muted-card"><span className="feature-icongold"><ImageIcon size={21} /></span><h2>Media library</h2><p>Review approved photography and missing menu imagery.</p><b>Planned screen</b></article>
+                <article className="card admin-card muted-card"><span className="feature-icongold"><Users size={21} /></span><h2>Staff</h2><p>Manage staff accounts, roles and operational access.</p><b>Command-line managed</b></article>
+                <article className="card admin-card muted-card"><span className="feature-icongold"><ChartNoAxesCombined size={21} /></span><h2>Reports</h2><p>Review service speed, sales and payment reconciliation.</p><b>Planned screen</b></article>
+                <article className="card admin-card muted-card"><span className="feature-icongold"><Settings size={21} /></span><h2>Settings</h2><p>Restaurant profile, service rules and audit history.</p><b>Planned screen</b></article>
+              </section>
               <Notice tone="warn">
-                Menu editing, media upload, staff administration and reporting are still run from the command-line scripts
-                (<code>import:menu</code>, <code>qr:provision</code>, <code>staff:provision</code>). Their screens are not built yet.
+                Menu editing and staff administration remain available through the existing command-line tools until their screens are implemented.
               </Notice>
             </>
           )}
         </StaffGuard>
       </div>
-    </main>
+    </OperationsShell>
   );
 }

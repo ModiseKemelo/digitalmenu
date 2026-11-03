@@ -23,7 +23,7 @@ export default function MenuPage() {
   const countFor = (categoryId: string) => items.filter((item) => item.categoryId === categoryId).length;
 
   return (
-    <GuestChrome title="Our menu" subtitle="Browse by course, then add dishes to your order.">
+    <GuestChrome title="What are you craving?" subtitle="Bold flavours, open-flame cooking and favourites from around the world.">
       {error && <Notice tone="error">{error}</Notice>}
       {!categories && !error && <Spinner label="Loading the menu" />}
 
@@ -35,14 +35,23 @@ export default function MenuPage() {
 
       {categories && categories.length > 0 && (
         <>
-          <p className="sectionlabel">Choose a course</p>
-          <section className="gridcards">
+          <div className="filter-chips" aria-label="Menu filters">
+            <span className="filter-chip active">All</span>
+            <span className="filter-chip">Popular</span>
+            <span className="filter-chip">Vegetarian</span>
+            <span className="filter-chip">Spicy</span>
+          </div>
+          <div className="content-heading">
+            <div><p className="sectionlabel">Explore</p><h2>Choose a course</h2></div>
+            <span>{categories.length} categories</span>
+          </div>
+          <section className="menu-category-grid">
             {categories.map((category) => (
-              <Link key={category.id} href={`/menu/category/${category.id}`} className="card" style={{textDecoration: 'none'}}>
+              <Link key={category.id} href={`/menu/category/${category.id}`} className="category-tile">
                 <Photo src={category.coverImagePath} alt="" />
-                <div style={{padding: 15}}>
-                  <h2 style={{margin: 0, fontSize: 20}}>{category.name}</h2>
-                  <p className="muted small" style={{margin: '6px 0 0'}}>
+                <div className="category-copy">
+                  <h2>{category.name}</h2>
+                  <p>
                     {countFor(category.id)} {countFor(category.id) === 1 ? 'dish' : 'dishes'}
                   </p>
                 </div>

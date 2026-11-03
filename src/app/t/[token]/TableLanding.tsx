@@ -6,6 +6,7 @@ import {api, ApiError} from '@/lib/api';
 import {isFirebaseConfigured, isAppCheckMissing} from '@/lib/firebase-client';
 import {writeGuestSession} from '@/lib/guest-session';
 import {Notice, Spinner} from '@/components/ui';
+import Brand from '@/components/Brand';
 
 /** Human wording for the server's structured QR failures. */
 const MESSAGES: Record<string, string> = {
@@ -54,12 +55,13 @@ export default function TableLanding({token}: {token: string}) {
   }, [token, router]);
 
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 30}}>Welcome to your table</h1>
+    <main className="public-shell table-landing">
+      <div className="public-brandbar"><Brand /><span className="public-location">Secure table access</span></div>
+      <header className="public-hero">
+        <div><p className="eyebrow">Welcome to Bukhara</p><h1>Your table<br />is ready.</h1>
+        <p>We are securely opening the dining menu for this table.</p></div>
       </header>
-      <div className="stack" style={{marginTop: 20}}>
+      <div className="landing-status">
         {error ? <Notice tone="error">{error}</Notice> : <Spinner label="Opening the menu" />}
       </div>
     </main>

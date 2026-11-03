@@ -76,19 +76,19 @@ export default function ItemDetail({itemId}: {itemId: string}) {
   };
 
   return (
-    <GuestChrome title={item.name} hideCartBar>
+    <GuestChrome title="Dish details" subtitle="Review your choices before adding this dish." hideCartBar>
       <BackLink href={`/menu/category/${item.categoryId}`}>Back to dishes</BackLink>
 
-      <article className="card">
-        <Photo src={item.primaryImagePath} alt={item.name} priority />
-        <div style={{padding: 16}}>
+      <article className="card dish-detail-card">
+        <div className="dish-detail-photo"><Photo src={item.primaryImagePath} alt={item.name} priority /></div>
+        <div className="dish-detail-copy">
           <div className="between">
-            <h2 style={{margin: 0, fontSize: 20}}>{item.name}</h2>
+            <h2>{item.name}</h2>
             <Money minor={item.priceMinor} />
           </div>
-          {item.description && <p style={{margin: '10px 0 0'}}>{item.description}</p>}
+          {item.description && <p>{item.description}</p>}
           {item.allergens.length > 0 && (
-            <p className="small muted" style={{margin: '12px 0 0', display: 'flex', alignItems: 'center', gap: 6}}>
+            <p className="allergen-note">
               <TriangleAlert size={14} strokeWidth={2} />
               Allergens: {item.allergens.join(', ')}
             </p>
@@ -101,8 +101,8 @@ export default function ItemDetail({itemId}: {itemId: string}) {
       ) : (
         <>
           {options.length > 0 && (
-            <section className="card" style={{padding: 16}}>
-              <h3 style={{margin: '0 0 12px', fontSize: 17}}>Choices</h3>
+            <section className="choice-panel">
+              <div className="content-heading compact"><div><p className="sectionlabel">Optional</p><h2>Make it yours</h2></div></div>
               <div className="stack" style={{gap: 8}}>
                 {options.map((option) => {
                   const selected = chosen.includes(option.id);
@@ -134,7 +134,7 @@ export default function ItemDetail({itemId}: {itemId: string}) {
             </section>
           )}
 
-          <section className="card" style={{padding: 16}}>
+          <section className="card notes-panel">
             <label htmlFor="notes">Anything we should know?</label>
             <textarea
               id="notes"
@@ -149,7 +149,7 @@ export default function ItemDetail({itemId}: {itemId: string}) {
             </p>
           </section>
 
-          <div className="between">
+          <div className="dish-add-row">
             <div className="qty">
               <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} aria-label="Reduce quantity">
                 <Minus size={16} strokeWidth={2.5} />

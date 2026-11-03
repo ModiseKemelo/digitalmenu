@@ -13,6 +13,7 @@ import {api, ApiError} from '@/lib/api';
 import {Notice, Spinner, BackLink} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
 import QrLabel from '@/components/QrLabel';
+import OperationsShell from '@/components/OperationsShell';
 
 type TableRow = {id: string; label: string; enabled: boolean; busy: boolean; tokenVersion: number};
 type Issued = {tableId: string; label: string; payload: string};
@@ -97,9 +98,9 @@ function Tables() {
         </Notice>
       )}
 
-      <section className="stack">
+      <section className="admin-table-list">
         {(tables ?? []).map((table) => (
-          <div key={table.id} className="card between" style={{padding: 16}}>
+          <div key={table.id} className="card admin-table-row">
             <div>
               <strong>{table.label}</strong>
               <p className="small muted" style={{margin: '4px 0 0'}}>
@@ -124,14 +125,10 @@ function Tables() {
 
 export default function AdminTablesPage() {
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">Bukhara Restaurant · Administration</p>
-        <h1 style={{margin: '8px 0 0', fontSize: 26}}>Tables and QR codes</h1>
-      </header>
-      <div className="stack" style={{marginTop: 20}}>
+    <OperationsShell area="admin" title="Tables & QR codes" subtitle="Manage table access and replace damaged or compromised labels.">
+      <div className="stack">
         <StaffGuard requireAdmin>{() => <Tables />}</StaffGuard>
       </div>
-    </main>
+    </OperationsShell>
   );
 }

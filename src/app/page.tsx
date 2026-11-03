@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import {QrCode, UtensilsCrossed, Sparkles} from 'lucide-react';
+import {ConciergeBell, QrCode, Sparkles} from 'lucide-react';
+import Brand from '@/components/Brand';
 
 /**
  * The public entry point. Guests reach the menu by scanning their table's QR
@@ -8,57 +9,56 @@ import {QrCode, UtensilsCrossed, Sparkles} from 'lucide-react';
  */
 export default function Home() {
   return (
-    <main className="shell">
-      <section className="hero">
-        <p className="eyebrow">Gaborone · Botswana</p>
-        <h1 style={{margin: '12px 0 0', fontSize: 40}}>Bukhara Restaurant</h1>
-        <p style={{margin: '12px 0 0', opacity: 0.9, maxWidth: 480}}>
-          The flavours of the Silk Road, from our kitchen to your table.
-        </p>
+    <main className="public-shell">
+      <header className="public-brandbar">
+        <Brand />
+        <span className="public-location">Gaborone · Botswana</span>
+      </header>
+
+      <section className="public-hero">
+        <div>
+          <p className="eyebrow">A culinary odyssey</p>
+          <h1>The world,<br />served beautifully.</h1>
+          <p>Discover flame-grilled favourites, fragrant curries and global classics—crafted in the heart of Gaborone.</p>
+        </div>
+        <span className="hero-spark" aria-hidden>✦</span>
       </section>
 
-      <div className="card" style={{padding: 22, marginTop: 20}}>
-        <div className="row" style={{alignItems: 'flex-start'}}>
-          <span className="feature-icongold">
-            <QrCode size={22} strokeWidth={1.75} />
-          </span>
-          <div style={{flex: 1}}>
-            <h2 style={{margin: 0, fontSize: 20}}>Scan the code on your table</h2>
-            <p className="muted" style={{margin: '8px 0 0'}}>
-              Each table has its own QR code. Scanning it opens the menu for that table and lets you order from your
-              phone — no app, no waiting.
-            </p>
+      <div className="public-sectionhead">
+        <h2>Good evening</h2>
+        <span>Welcome to Bukhara</span>
+      </div>
+
+      <section className="scan-panel">
+        <div>
+          <p className="eyebrow">Dining with us?</p>
+          <h2>Scan your table</h2>
+          <p>Each table has its own secure QR code. Scan it to open the menu and order directly from your seat.</p>
+        </div>
+        <div className="qr-art" aria-hidden><QrCode size={82} strokeWidth={1.2} /></div>
+      </section>
+
+      <section className="public-features">
+        <article className="card feature-row">
+          <span className="feature-icongold"><Sparkles size={21} /></span>
+          <div>
+            <h3>Freshly prepared</h3>
+            <p>Every plate is made to order by our kitchen.</p>
           </div>
-        </div>
-      </div>
+        </article>
+        <article className="card feature-row">
+          <span className="feature-icongold"><ConciergeBell size={21} /></span>
+          <div>
+            <h3>Service at your fingertips</h3>
+            <p>Track dishes, request the bill or call your waiter.</p>
+          </div>
+        </article>
+      </section>
 
-      <div className="gridcards" style={{marginTop: 16}}>
-        <div className="card" style={{padding: 18}}>
-          <UtensilsCrossed size={22} strokeWidth={1.75} style={{color: 'var(--gold-deep)'}} />
-          <h3 style={{margin: '12px 0 0', fontSize: 18}}>Browse the menu</h3>
-          <p className="muted small" style={{margin: '6px 0 0'}}>
-            Courses, dishes and photographs — all at your fingertips once you scan in.
-          </p>
-        </div>
-        <div className="card" style={{padding: 18}}>
-          <Sparkles size={22} strokeWidth={1.75} style={{color: 'var(--gold-deep)'}} />
-          <h3 style={{margin: '12px 0 0', fontSize: 18}}>Order as you go</h3>
-          <p className="muted small" style={{margin: '6px 0 0'}}>
-            Add dishes, make your choices and send them straight to the kitchen.
-          </p>
-        </div>
-      </div>
-
-      <hr className="rule" style={{margin: '24px 0'}} />
-
-      <nav className="row" style={{flexWrap: 'wrap'}}>
-        <Link href="/staff" className="btn btn-ghost">
-          Staff
-        </Link>
-        <Link href="/admin" className="btn btn-ghost">
-          Administration
-        </Link>
-      </nav>
+      <footer className="public-footer">
+        <span>Restaurant team</span>
+        <nav><Link href="/staff">Staff sign-in</Link><Link href="/admin">Administration</Link></nav>
+      </footer>
     </main>
   );
 }
