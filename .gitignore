@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env*
+!.env.example
+.firebase/
+*.log
+functions/lib/
+service-account*.json
+
+# Local provisioning output: live QR tokens and table credentials.
+.local/

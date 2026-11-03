@@ -1,0 +1,49 @@
+{
+  "name": "bukhara-digital-menu",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint src scripts tests functions/src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run src",
+    "emulators": "firebase emulators:start",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
+    "test:unit": "vitest run src",
+    "test:emulator": "firebase emulators:exec --project bukhara-emulator-test --only firestore,auth,functions \"vitest run --config vitest.integration.config.ts\"",
+    "test:rules": "firebase emulators:exec --project bukhara-emulator-test --only firestore \"vitest run tests/rules\"",
+    "build:functions": "npm --prefix functions run build",
+    "import:menu": "tsx scripts/import-menu.ts",
+    "qr:provision": "tsx scripts/provision-tables.ts",
+    "staff:provision": "tsx scripts/provision-staff.ts",
+    "deploy:functions": "npm run build:functions && firebase deploy --only functions",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build:functions && npm run build"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.5.0",
+    "qrcode": "^1.5.4",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.0.0"
+  }
+}

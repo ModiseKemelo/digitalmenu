@@ -1,0 +1,95 @@
+rules_version = '2';
+
+// All writes are denied to clients. Every mutation goes through a Cloud
+// Function that validates authorization, prices from Firestore and writes in a
+// transaction (docs/04-SECURITY-AND-DATA.md, docs/09-API-CONTRACTS.md).
+//
+// Reads are narrow by design:
+//   - published menu data is public, because the guest menu is a public read;
+//   - order, session, payment and table data is staff-only; guests reach their
+//     own orders through getGuestSessionView, never directly;
+//   - secret material (QR token hashes, guest capabilities) and internal
+//     bookkeeping (idempotency, rate limits) are unreadable by any client.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function staffDoc(r) {
+      return get(/databases/$(database)/documents/restaurants/$(r)/staff/$(request.auth.uid)).data;
+    }
+    function staff(r) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/restaurants/$(r)/staff/$(request.auth.uid))
+        && staffDoc(r).active == true;
+    }
+    function admin(r) {
+      return staff(r) && staffDoc(r).role == 'admin';
+    }
+
+    match /restaurants/{r} {
+      allow read: if true;
+      allow write: if false;
+
+      match /categories/{id} {
+        allow read: if resource.data.published == true || staff(r);
+        allow write: if false;
+      }
+
+      match /menuItems/{id} {
+        allow read: if resource.data.published == true || staff(r);
+        allow write: if false;
+      }
+
+      // Table documents hold the current QR token hash, so they stay staff-only.
+      match /tables/{id} {
+        allow read: if staff(r);
+        allow write: if false;
+      }
+
+      match /sessions/{id} {
+        allow read: if staff(r);
+        allow write: if false;
+
+        match /orders/{oid} {
+          allow read: if staff(r);
+          allow write: if false;
+        }
+        match /payments/{pid} {
+          allow read: if staff(r);
+          allow write: if false;
+        }
+        match /guestAccess/{gid} {
+          allow read, write: if false;
+        }
+      }
+
+      match /staff/{id} {
+        allow read: if admin(r) || (request.auth != null && request.auth.uid == id);
+        allow write: if false;
+      }
+
+      match /serviceRequests/{id} {
+        allow read: if staff(r);
+        allow write: if false;
+      }
+
+      match /auditLogs/{id} {
+        allow read: if admin(r);
+        allow write: if false;
+      }
+
+      // Secret material and server bookkeeping: no client may read these.
+      match /qrTokens/{hash} {
+        allow read, write: if false;
+      }
+      match /guestCapabilities/{hash} {
+        allow read, write: if false;
+      }
+      match /idempotency/{key} {
+        allow read, write: if false;
+      }
+      match /rateLimits/{key} {
+        allow read, write: if false;
+      }
+    }
+  }
+}

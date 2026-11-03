@@ -1,0 +1,2 @@
+id,categoryId,name,description,priceBWP,available,published,primaryImagePath,allergens,notes
+sample-curry,curries,Sample Curry,DEMO ONLY,125.00,true,false,,,

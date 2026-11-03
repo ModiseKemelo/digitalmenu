@@ -1,0 +1,63 @@
+# Firebase App Hosting configuration for the Bukhara digital menu.
+# Secrets must NEVER be listed here: this file is committed. Everything below
+# is public web configuration that Next.js inlines into the browser bundle.
+# For a real secret use `firebase apphosting:secrets:set` and reference it with
+# `secret:` instead of `value:`.
+
+runConfig:
+  # A single venue's dining room. Two instances is ample headroom; raising the
+  # ceiling raises the bill, and the ordering path is Firestore-bound anyway.
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  # BUILD availability is required for NEXT_PUBLIC_ values: Next inlines them
+  # at build time, so a RUNTIME-only variable arrives empty in the browser.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyB2PD0LzpwVs4VxQRro-rkdUFh9RPwYu5E
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:642414941918:web:d1868c9e6eb4936e86944f"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: menu-bukhara.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: menu-bukhara
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: menu-bukhara.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "642414941918"
+    availability: [BUILD, RUNTIME]
+
+  # Must match REGION in functions/src/runtime-region.ts.
+  - variable: NEXT_PUBLIC_FUNCTIONS_REGION
+    value: africa-south1
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_RESTAURANT_ID
+    value: bukhara
+    availability: [BUILD, RUNTIME]
+
+  # Deployed QR codes must point at the live origin, not localhost. Update this
+  # to the custom domain once it is attached, then redeploy: the value is baked
+  # into every QR payload minted afterwards.
+  - variable: NEXT_PUBLIC_BASE_URL
+    value: https://menu-bukhara.web.app
+    availability: [BUILD, RUNTIME]
+
+  # App Check. REQUIRED: the callables enforce App Check outside the emulator,
+  # so until this holds a reCAPTCHA v3 site key the deployed site cannot call
+  # the backend at all. See docs/11-FIREBASE-SETUP.md.
+  - variable: NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY
+    value: ""
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_USE_EMULATORS
+    value: "false"
+    availability: [BUILD, RUNTIME]

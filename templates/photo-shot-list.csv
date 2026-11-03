@@ -1,0 +1,2 @@
+itemId,itemName,existingApprovedPhoto,newPhotoNeeded,photographer,approvalStatus,notes
+sample-curry,Sample Curry,false,true,,pending,DEMO ONLY

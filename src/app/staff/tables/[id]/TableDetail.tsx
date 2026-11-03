@@ -1,0 +1,328 @@
+'use client';
+/**
+ * One table: its open session, orders, payments, balance and settlement.
+ *
+ * The balance shown is the server's derived figure, read live. Recording a
+ * payment and closing the table both go through callables that re-verify the
+ * balance in a transaction, so this screen cannot talk the server into closing
+ * an unsettled table.
+ */
+import {useEffect, useState} from 'react';
+import {collection, onSnapshot, query, where, limit, orderBy} from 'firebase/firestore';
+import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {api, ApiError, newIdempotencyKey} from '@/lib/api';
+import type {OrderStatus, PaymentMethod} from '@/lib/contracts';
+import {isSettled} from '@/lib/order-domain';
+import {Money, Notice, Spinner, StatusBadge, BackLink} from '@/components/ui';
+import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
+
+type Session = {
+  id: string;
+  tableLabel: string;
+  chargeTotalMinor: number;
+  paidMinor: number;
+  balanceMinor: number;
+  version: number;
+};
+
+type Order = {id: string; status: OrderStatus; totalMinor: number};
+type Payment = {id: string; type: string; amountMinor: number; method: string | null; reference: string; staffName: string; reversedByReversalId: string | null};
+
+function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [reference, setReference] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  // Find the table's open session.
+  useEffect(() => {
+    const {db} = firebase();
+    return onSnapshot(
+      query(
+        collection(db, `restaurants/${RESTAURANT_ID}/sessions`),
+        where('tableId', '==', tableId),
+        where('status', '==', 'open'),
+        limit(1),
+      ),
+      (snapshot) => {
+        const document = snapshot.docs[0];
+        if (!document) {
+          setSession(null);
+          return;
+        }
+        const data = document.data();
+        setSession({
+          id: document.id,
+          tableLabel: String(data.tableLabel ?? tableId),
+          chargeTotalMinor: Number(data.chargeTotalMinor ?? 0),
+          paidMinor: Number(data.paidMinor ?? 0),
+          balanceMinor: Number(data.balanceMinor ?? 0),
+          version: Number(data.version ?? 0),
+        });
+      },
+      () => setError('Could not load this table. Check your connection.'),
+    );
+  }, [tableId]);
+
+  // Follow that session's orders and payments.
+  useEffect(() => {
+    if (!session) return;
+    const {db} = firebase();
+    const base = `restaurants/${RESTAURANT_ID}/sessions/${session.id}`;
+    const stopOrders = onSnapshot(query(collection(db, `${base}/orders`), orderBy('createdAt', 'desc')), (snapshot) =>
+      setOrders(
+        snapshot.docs.map((document) => ({
+          id: document.id,
+          status: document.data().status as OrderStatus,
+          totalMinor: Number(document.data().totalMinor ?? 0),
+        })),
+      ),
+    );
+    const stopPayments = onSnapshot(query(collection(db, `${base}/payments`), orderBy('createdAt', 'desc')), (snapshot) =>
+      setPayments(
+        snapshot.docs.map((document) => {
+          const data = document.data();
+          return {
+            id: document.id,
+            type: String(data.type ?? 'payment'),
+            amountMinor: Number(data.amountMinor ?? 0),
+            method: (data.method as string | null) ?? null,
+            reference: String(data.reference ?? ''),
+            staffName: String(data.staffName ?? ''),
+            reversedByReversalId: (data.reversedByReversalId as string | null) ?? null,
+          };
+        }),
+      ),
+    );
+    return () => {
+      stopOrders();
+      stopPayments();
+    };
+  }, [session?.id, session]);
+
+  /** Parses the typed amount into integer thebe without a float round-trip. */
+  const parseAmountMinor = (value: string): number | null => {
+    const match = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(value.trim());
+    if (!match) return null;
+    const thebe = Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
+    return thebe > 0 ? thebe : null;
+  };
+
+  const recordPayment = async () => {
+    if (!session) return;
+    const amountMinor = parseAmountMinor(amount);
+    if (amountMinor === null) {
+      setError('Enter the amount received, for example 125.50.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await api.recordManualPayment({
+        sessionId: session.id,
+        amountMinor,
+        method,
+        reference: reference.trim(),
+        idempotencyKey: newIdempotencyKey(),
+      });
+      setAmount('');
+      setReference('');
+      setMessage(result.balanceMinor <= 0 ? 'Payment recorded. This table is settled.' : 'Payment recorded.');
+    } catch (failure) {
+      setError((failure as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reverse = async (paymentId: string) => {
+    if (!session) return;
+    const reason = window.prompt('Why is this payment being reversed? This is recorded against your name.');
+    if (!reason || reason.trim().length < 3) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.reverseManualPayment({sessionId: session.id, paymentId, reason: reason.trim(), idempotencyKey: newIdempotencyKey()});
+      setMessage('Payment reversed.');
+    } catch (failure) {
+      setError((failure as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeTable = async () => {
+    if (!session) return;
+    const settled = isSettled(session.balanceMinor);
+    let managerExceptionReason: string | undefined;
+    if (!settled) {
+      const reason = window.prompt('This table is not settled. A manager must give a written reason to close it.');
+      if (!reason || reason.trim().length < 3) return;
+      managerExceptionReason = reason.trim();
+    } else if (!window.confirm('Close this table? The guests will lose access to their orders.')) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.closeDiningSession({sessionId: session.id, expectedVersion: session.version, managerExceptionReason});
+      setMessage('Table closed.');
+    } catch (failure) {
+      const apiError = failure as ApiError;
+      setError(
+        apiError.code === 'version-conflict'
+          ? 'This table changed on another device. Please look again before closing.'
+          : apiError.message,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (session === undefined) return <Spinner label="Loading this table" />;
+
+  if (session === null) {
+    return (
+      <>
+        <BackLink href="/staff">Live orders</BackLink>
+        <Notice tone="ok">{tableId} has no open session. It is free for the next party.</Notice>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <BackLink href="/staff">Live orders</BackLink>
+
+      <section className="card" style={{padding: 16}}>
+        <h2 style={{margin: 0, fontSize: 20}}>{session.tableLabel}</h2>
+        <div className="stack small" style={{marginTop: 12, gap: 6}}>
+          <div className="between">
+            <span className="muted">Ordered</span>
+            <Money minor={session.chargeTotalMinor} />
+          </div>
+          <div className="between">
+            <span className="muted">Paid</span>
+            <Money minor={session.paidMinor} />
+          </div>
+          <div className="between" style={{fontSize: 16, fontWeight: 700, borderTop: '1px solid var(--line)', paddingTop: 8}}>
+            <span>Balance</span>
+            <Money minor={session.balanceMinor} />
+          </div>
+        </div>
+      </section>
+
+      {message && <Notice tone="ok">{message}</Notice>}
+      {error && <Notice tone="error">{error}</Notice>}
+
+      <section className="card" style={{padding: 16}}>
+        <h3 style={{margin: '0 0 12px', fontSize: 16}}>Record a payment</h3>
+        <div className="stack">
+          <div>
+            <label htmlFor="amount">Amount received (BWP)</label>
+            <input
+              id="amount"
+              inputMode="decimal"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="125.00"
+            />
+          </div>
+          <div>
+            <label htmlFor="method">Method</label>
+            <select id="method" value={method} onChange={(event) => setMethod(event.target.value as PaymentMethod)}>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="reference">Reference (till or card authorisation)</label>
+            <input id="reference" value={reference} onChange={(event) => setReference(event.target.value)} />
+          </div>
+          <button type="button" className="btn" onClick={() => void recordPayment()} disabled={busy}>
+            Record payment
+          </button>
+          <p className="small muted" style={{margin: 0}}>
+            Partial payments are fine — record each one as it is taken. Never record a card PIN or full card number.
+          </p>
+        </div>
+      </section>
+
+      {payments.length > 0 && (
+        <section className="card" style={{padding: 16}}>
+          <h3 style={{margin: '0 0 12px', fontSize: 16}}>Payments</h3>
+          <div className="stack small">
+            {payments.map((payment) => (
+              <div key={payment.id} className="between" style={{borderTop: '1px solid var(--line)', paddingTop: 8}}>
+                <div>
+                  <p style={{margin: 0}}>
+                    {payment.type === 'reversal' ? 'Reversal' : payment.method === 'card' ? 'Card' : 'Cash'}
+                    {payment.reversedByReversalId && <span className="muted"> — reversed</span>}
+                  </p>
+                  <p className="muted" style={{margin: '2px 0 0'}}>
+                    {payment.staffName}
+                    {payment.reference && ` · ${payment.reference}`}
+                  </p>
+                </div>
+                <div className="row">
+                  <span>
+                    {payment.type === 'reversal' ? '−' : ''}
+                    <Money minor={payment.amountMinor} />
+                  </span>
+                  {staff.role === 'admin' && payment.type === 'payment' && !payment.reversedByReversalId && (
+                    <button type="button" className="btn btn-ghost small" onClick={() => void reverse(payment.id)} disabled={busy}>
+                      Reverse
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="card" style={{padding: 16}}>
+        <h3 style={{margin: '0 0 12px', fontSize: 16}}>Orders on this table</h3>
+        <div className="stack small">
+          {orders.length === 0 && <p className="muted" style={{margin: 0}}>Nothing ordered yet.</p>}
+          {orders.map((order) => (
+            <div key={order.id} className="between">
+              <StatusBadge status={order.status} />
+              <Money minor={order.totalMinor} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <button
+        type="button"
+        className="btn"
+        onClick={() => void closeTable()}
+        disabled={busy}
+        style={{width: '100%', background: isSettled(session.balanceMinor) ? undefined : 'var(--danger)', borderColor: 'transparent'}}
+      >
+        {isSettled(session.balanceMinor) ? 'Close this table' : 'Close with manager authorisation'}
+      </button>
+    </>
+  );
+}
+
+export default function TableDetail({tableId}: {tableId: string}) {
+  return (
+    <main className="shell">
+      <header className="hero">
+        <p className="eyebrow">Bukhara Restaurant · Table</p>
+        <h1 style={{margin: '8px 0 0', fontSize: 26}}>{tableId}</h1>
+      </header>
+      <div className="stack" style={{marginTop: 20}}>
+        <StaffGuard>{(staff) => <Detail tableId={tableId} staff={staff} />}</StaffGuard>
+      </div>
+    </main>
+  );
+}
