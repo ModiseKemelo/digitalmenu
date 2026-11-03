@@ -1,19 +1,19 @@
 id,name,sortOrder,published,coverImagePath
-starters,Starters,10,true,
-platters,Platters,20,true,
-salads,Salads,30,true,
-burgers,Burgers,40,true,
-trammezini,Trammezini & Ciabatta,50,true,
-pasta,Pasta,60,true,
-pizza,Pizza,70,true,
-turkish-pide,Turkish Pide,80,true,
-char-grills,Char Grills,90,true,
-from-the-wok,From the Wok,100,true,
-curries-veg,Curries — Vegetarian,110,true,
-curries-non-veg,"Curries — Chicken, Mutton & Seafood",120,true,
-tswana-corner,Tswana Corner,130,true,
-rice,Rice,140,true,
-dum-pukht,Dum Pukht,150,true,
-indian-breads,Indian Breads,160,true,
-desserts,Desserts,170,true,
-dessert-cocktails,Dessert Cocktails,180,true,
+starters,Starters,10,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/starters-chicken-lollipops.jpg
+platters,Platters,20,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/platters-mixed-grill-platter-4-pcs.jpg
+salads,Salads,30,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/salads-bukhara-royal-salad.jpg
+burgers,Burgers,40,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/burgers-the-tower-burger.jpg
+trammezini,Trammezini & Ciabatta,50,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/trammezini-paraggi.jpg
+pasta,Pasta,60,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/pasta-portofino.jpg
+pizza,Pizza,70,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/pizza-portofino.jpg
+turkish-pide,Turkish Pide,80,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/turkish-pide-veg-pide.jpg
+char-grills,Char Grills,90,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/char-grills-rosemary-garlic-butter-t-bone.jpg
+from-the-wok,From the Wok,100,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/from-the-wok-chicken-chilli-garlic-sauce.jpg
+curries-veg,Curries — Vegetarian,110,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/curries-veg-dal-bukhara.jpg
+curries-non-veg,"Curries — Chicken, Mutton & Seafood",120,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/curries-non-veg-butter-chicken.jpg
+tswana-corner,Tswana Corner,130,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/tswana-corner-lamb-stew.jpg
+rice,Rice,140,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/rice-chicken-biryani.jpg
+dum-pukht,Dum Pukht,150,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/dum-pukht-chicken-dum-pukht.jpg
+indian-breads,Indian Breads,160,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/indian-breads-plain-naan-brown-roti.jpg
+desserts,Desserts,170,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/desserts-malva-pudding.jpg
+dessert-cocktails,Dessert Cocktails,180,true,https://storage.googleapis.com/menu-bukhara.firebasestorage.app/menu/dessert-cocktails-chocolate-banana-martini.jpg

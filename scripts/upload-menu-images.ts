@@ -8,16 +8,23 @@
  * signed URL would expire mid-service. The resulting public URL is printed so
  * it can be pasted into the seed CSVs.
  *
- * This uploads a single size. Real menu photography should go through the
- * image variant pipeline (docs/08), not this script.
+ * Each image is resized before upload. The Next.js image optimizer is off (see
+ * next.config.ts), so whatever is uploaded is what a phone downloads; the
+ * originals average ~290KB, which is far too heavy for a menu grid on mobile
+ * data. This is still a single size — real menu photography should go through
+ * the variant pipeline in docs/08, not this script.
  */
 import {readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
+import sharp from 'sharp';
 import {getStorage} from 'firebase-admin/storage';
 import './admin-app';
 import {requireConfirmation, PROJECT_ID} from './admin-app';
 
 const BUCKET = process.env.FIREBASE_STORAGE_BUCKET ?? `${PROJECT_ID}.firebasestorage.app`;
+/** Wide enough for a full-bleed dish photo on a phone at 2x. */
+const MAX_WIDTH = 900;
+
 function flag(argv: string[], name: string): string | undefined {
   const i = argv.indexOf(name);
   return i === -1 ? undefined : argv[i + 1];
@@ -44,16 +51,19 @@ async function main(): Promise<void> {
 
   for (const file of files.sort()) {
     const destination = `${prefix}/${file}`;
-    await bucket.upload(join(dir, file), {
-      destination,
-      metadata: {
-        contentType: 'image/jpeg',
-        // A menu photo changes rarely; let the CDN and the browser keep it.
-        cacheControl: 'public, max-age=86400',
-      },
+    const body = await sharp(join(dir, file))
+      .rotate()                       // honour EXIF orientation before resizing
+      .resize({width: MAX_WIDTH, withoutEnlargement: true})
+      .jpeg({quality: 78, progressive: true, mozjpeg: true})
+      .toBuffer();
+
+    await bucket.file(destination).save(body, {
+      contentType: 'image/jpeg',
+      // A menu photo changes rarely; let the CDN and the browser keep it.
+      metadata: {cacheControl: 'public, max-age=86400'},
     });
     await bucket.file(destination).makePublic();
-    console.log(`  ${file.padEnd(22)} https://storage.googleapis.com/${BUCKET}/${destination}`);
+    console.log(`  ${file.padEnd(46)} ${Math.round(body.length / 1024)}KB`);
   }
 
   console.log('Upload complete.');
