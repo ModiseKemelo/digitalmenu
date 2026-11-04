@@ -32,6 +32,8 @@ const idempotencyKey = z.string().trim().min(16).max(128).regex(/^[A-Za-z0-9_-]+
 const opaqueToken = z.string().trim().min(16).max(256).regex(/^[A-Za-z0-9_-]+$/, 'token must be URL-safe');
 const docId = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/, 'identifier must be URL-safe');
 const freeText = z.string().trim().max(280);
+/** The branch a staff action applies to; the server defaults it and re-authorizes against it. */
+const branchId = docId.optional();
 
 export const orderLineInput = z.object({
   itemId: docId,
@@ -47,15 +49,17 @@ export const resolveTableQrInput = z.object({token: opaqueToken});
 export const submitGuestOrderInput = z.object({capability: opaqueToken, items: orderLines, idempotencyKey});
 export const guestSessionViewInput = z.object({capability: opaqueToken});
 export const createServiceRequestInput = z.object({capability: opaqueToken, type: z.enum(SERVICE_REQUEST_TYPES)});
-export const resolveServiceRequestInput = z.object({requestId: docId});
-export const submitWaiterOrderInput = z.object({tableId: docId, items: orderLines, idempotencyKey});
+export const resolveServiceRequestInput = z.object({requestId: docId, branchId});
+export const submitWaiterOrderInput = z.object({tableId: docId, items: orderLines, idempotencyKey, branchId});
 export const updateOrderStatusInput = z.object({
+  branchId,
   sessionId: docId,
   orderId: docId,
   nextStatus: z.enum(ORDER_STATUSES),
   expectedVersion: z.number().int().min(0),
 });
 export const recordManualPaymentInput = z.object({
+  branchId,
   sessionId: docId,
   amountMinor: z.number().int().min(1).max(MAX_PAYMENT_MINOR),
   method: z.enum(PAYMENT_METHODS),
@@ -63,17 +67,19 @@ export const recordManualPaymentInput = z.object({
   idempotencyKey,
 });
 export const reverseManualPaymentInput = z.object({
+  branchId,
   sessionId: docId,
   paymentId: docId,
   reason: freeText.min(3),
   idempotencyKey,
 });
 export const closeDiningSessionInput = z.object({
+  branchId,
   sessionId: docId,
   expectedVersion: z.number().int().min(0),
   managerExceptionReason: freeText.optional(),
 });
-export const rotateTableQrTokenInput = z.object({tableId: docId});
+export const rotateTableQrTokenInput = z.object({tableId: docId, branchId});
 
 export type ResolveTableQrInput = z.infer<typeof resolveTableQrInput>;
 export type SubmitGuestOrderInput = z.infer<typeof submitGuestOrderInput>;

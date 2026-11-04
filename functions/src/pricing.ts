@@ -4,7 +4,7 @@
  * Firestore here. Client-supplied money is never accepted (docs/09).
  */
 import type {Transaction} from 'firebase-admin/firestore';
-import {refs, txOk, txFail, type TxResult} from './runtime';
+import {txOk, txFail, type TxResult, type Refs} from './runtime';
 import {lineTotal, mergeLines, orderTotal, unitPriceWithOptions} from '../../src/lib/order-domain';
 import type {OrderLineInput, OrderLineSnapshot} from '../../src/lib/contracts';
 
@@ -24,6 +24,7 @@ type MenuItemDoc = {
  * availability changes mid-request cannot be ordered at the stale value.
  */
 export async function priceOrderLines(
+  refs: Refs,
   tx: Transaction,
   lines: OrderLineInput[],
 ): Promise<TxResult<{items: OrderLineSnapshot[]; totalMinor: number}>> {

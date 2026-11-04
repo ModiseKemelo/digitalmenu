@@ -8,6 +8,7 @@ import {
   seedTable,
   seedMenuItem,
   restaurant,
+  admin,
   teardown,
   key,
   signInAs,
@@ -59,14 +60,14 @@ describe('QR resolution', () => {
 
   it('rejects a rotated-out token', async () => {
     const token = await seedTable('TBL-004', 'Table 04');
-    await restaurant().collection('qrTokens').doc(hashToken(token)).update({revoked: true});
+    await admin().collection('qrTokens').doc(hashToken(token)).update({revoked: true});
     const failure = await expectFailure('resolveTableQr', {token});
     expect(failure.details?.code).toBe('invalid-qr');
   });
 
   it('never stores the raw token', async () => {
     const token = await seedTable('TBL-005', 'Table 05');
-    const tokens = await restaurant().collection('qrTokens').get();
+    const tokens = await admin().collection('qrTokens').get();
     const serialised = JSON.stringify(tokens.docs.map((doc) => ({id: doc.id, ...doc.data()})));
     expect(serialised).not.toContain(token);
   });

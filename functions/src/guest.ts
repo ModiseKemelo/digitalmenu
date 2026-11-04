@@ -5,7 +5,7 @@
  * dining session (docs/04-SECURITY-AND-DATA.md).
  */
 import {onCall} from 'firebase-functions/v2/https';
-import {db, refs, fail, callableOptions, FieldValue, parseInput, txOk, txFail, unwrap, type TxResult} from './runtime';
+import {db, refsFor, globalRefs, fail, callableOptions, FieldValue, parseInput, txOk, txFail, unwrap, DEFAULT_BRANCH_ID, type TxResult} from './runtime';
 import {
   resolveTableQrInput,
   submitGuestOrderInput,
@@ -35,21 +35,36 @@ export const resolveTableQr = onCall(callableOptions, async (request): Promise<R
 
   return unwrap(
     await db.runTransaction(async (tx): Promise<TxResult<ResolveTableQrResult>> => {
-      const tokenSnapshot = await tx.get(refs.qrToken(tokenHash));
+      // The token lookup is the only thing that knows which branch this guest
+      // is sitting in: the printed card carries a hash and nothing else.
+      const tokenSnapshot = await tx.get(globalRefs.qrToken(tokenHash));
       // T02: an unknown or rotated-out token fails the same way as a disabled one.
       if (!tokenSnapshot.exists) return txFail('not-found', 'invalid-qr', 'This QR code is not valid');
-      const tokenDoc = tokenSnapshot.data() as {tableId: string; revoked: boolean; version: number};
+      const tokenDoc = tokenSnapshot.data() as {
+        branchId?: string;
+        tableId: string;
+        revoked: boolean;
+        version: number;
+      };
       if (tokenDoc.revoked) {
         return txFail('not-found', 'invalid-qr', 'This QR code has been replaced; ask staff for the current code');
       }
+      // Codes minted before the branch migration belong to the original branch.
+      const branchId = tokenDoc.branchId ?? DEFAULT_BRANCH_ID;
+      const refs = refsFor(branchId);
 
-      const read = await readTableSession(tx, tokenDoc.tableId);
+      const read = await readTableSession(refs, tx, tokenDoc.tableId);
       if (!read.ok) return read;
 
-      const {sessionId} = ensureSession(tx, read.value);
-      const {capability, guestId, expiresAtMs} = issueCapability(tx, {sessionId, tableId: tokenDoc.tableId});
+      const {sessionId} = ensureSession(refs, tx, read.value);
+      const {capability, guestId, expiresAtMs} = issueCapability(tx, {
+        branchId,
+        sessionId,
+        tableId: tokenDoc.tableId,
+      });
 
       audit(tx, {
+        branchId,
         action: 'guest.capability.issued',
         actorType: 'guest',
         actorId: guestId,
@@ -71,6 +86,7 @@ export const resolveTableQr = onCall(callableOptions, async (request): Promise<R
 export const submitGuestOrder = onCall(callableOptions, async (request): Promise<SubmitOrderResult> => {
   const input = parseInput(submitGuestOrderInput, request.data);
   const guest = await requireGuest(input.capability);
+  const refs = guest.refs;
   await consumeRateLimit(`order:${guest.guestId}`, 20, 60_000);
 
   const scopedKey = scopeIdempotencyKey('submitGuestOrder', guest.sessionId, input.idempotencyKey);
@@ -80,18 +96,18 @@ export const submitGuestOrder = onCall(callableOptions, async (request): Promise
       const replayed = await readIdempotentResult<SubmitOrderResult>(tx, scopedKey);
       if (replayed) return txOk(replayed);
 
-      const sessionRead = await readOpenSession(tx, guest.sessionId);
+      const sessionRead = await readOpenSession(refs, tx, guest.sessionId);
       if (!sessionRead.ok) return sessionRead;
       const session = sessionRead.value;
 
-      const priced = await priceOrderLines(tx, input.items);
+      const priced = await priceOrderLines(refs, tx, input.items);
       if (!priced.ok) return priced;
       const {items, totalMinor} = priced.value;
 
       const orderRef = refs.orders(guest.sessionId).doc();
       const status: OrderStatus = 'received';
       tx.set(orderRef, {
-        restaurantId: refs.restaurant().id,
+        restaurantId: refs.branchId,
         sessionId: guest.sessionId,
         tableId: guest.tableId,
         source: 'guest',
@@ -106,7 +122,7 @@ export const submitGuestOrder = onCall(callableOptions, async (request): Promise
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      applySessionTotals(tx, guest.sessionId, {
+      applySessionTotals(refs, tx, guest.sessionId, {
         chargeTotalMinor: session.chargeTotalMinor + totalMinor,
         paidMinor: session.paidMinor,
         adjustmentsMinor: session.adjustmentsMinor,
@@ -115,6 +131,7 @@ export const submitGuestOrder = onCall(callableOptions, async (request): Promise
       const result: SubmitOrderResult = {orderId: orderRef.id, status, totalMinor};
       writeIdempotentResult(tx, scopedKey, 'submitGuestOrder', result);
       audit(tx, {
+        branchId: refs.branchId,
         action: 'guest.order.submitted',
         actorType: 'guest',
         actorId: guest.guestId,
@@ -135,6 +152,7 @@ export const submitGuestOrder = onCall(callableOptions, async (request): Promise
 export const getGuestSessionView = onCall(callableOptions, async (request): Promise<GuestSessionView> => {
   const {capability} = parseInput(guestSessionViewInput, request.data);
   const guest = await requireGuest(capability);
+  const refs = guest.refs;
 
   const [sessionSnapshot, orderSnapshots] = await Promise.all([
     refs.session(guest.sessionId).get(),
@@ -180,6 +198,7 @@ export const getGuestSessionView = onCall(callableOptions, async (request): Prom
 export const createServiceRequest = onCall(callableOptions, async (request): Promise<CreateServiceRequestResult> => {
   const input = parseInput(createServiceRequestInput, request.data);
   const guest = await requireGuest(input.capability);
+  const refs = guest.refs;
   await consumeRateLimit(`service:${guest.guestId}:${input.type}`, 3, 5 * 60_000);
 
   // There is nothing to settle until the table owes something, so a bill
@@ -205,7 +224,7 @@ export const createServiceRequest = onCall(callableOptions, async (request): Pro
 
   const ref = refs.serviceRequests().doc();
   await ref.set({
-    restaurantId: refs.restaurant().id,
+    restaurantId: refs.branchId,
     sessionId: guest.sessionId,
     tableId: guest.tableId,
     guestId: guest.guestId,

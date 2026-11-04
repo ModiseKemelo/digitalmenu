@@ -9,6 +9,7 @@ import {
   seedTable,
   seedMenuItem,
   restaurant,
+  admin,
   teardown,
   key,
   signInAs,
@@ -404,7 +405,7 @@ describe('service request resolution', () => {
     expect(document.data()?.resolvedBy).toBe(uid);
     expect(document.data()?.resolvedAt).toBeTruthy();
 
-    const logs = await restaurant().collection('auditLogs').get();
+    const logs = await admin().collection('auditLogs').get();
     const resolved = logs.docs.filter((doc) => doc.data().action === 'staff.serviceRequest.resolved');
     expect(resolved.some((doc) => (doc.data().targetPath ?? '').includes(created.requestId))).toBe(true);
   });
@@ -466,7 +467,7 @@ describe('audit trail', () => {
     await makeStaff(uid, 'waiter');
     await callFn('recordManualPayment', {sessionId, amountMinor: 12500, method: 'cash', reference: 'till', idempotencyKey: key()});
 
-    const logs = await restaurant().collection('auditLogs').get();
+    const logs = await admin().collection('auditLogs').get();
     const forThisSession = logs.docs.filter((doc) => (doc.data().targetPath ?? '').includes(sessionId));
     const actions = forThisSession.map((doc) => doc.data().action);
     expect(actions).toContain('guest.capability.issued');

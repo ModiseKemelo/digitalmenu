@@ -4,7 +4,7 @@
  * audited; balances are always derived server-side (docs/04).
  */
 import {onCall} from 'firebase-functions/v2/https';
-import {db, refs, callableOptions, FieldValue, Timestamp, parseInput, txOk, txFail, unwrap, type TxResult} from './runtime';
+import {db, callableOptions, FieldValue, Timestamp, parseInput, txOk, txFail, unwrap, type TxResult} from './runtime';
 import {
   submitWaiterOrderInput,
   updateOrderStatusInput,
@@ -29,7 +29,8 @@ import {canRoleTransition, isChargeable, isSettled} from '../../src/lib/order-do
 /** An assisted order a waiter takes at the table on the guest's behalf. */
 export const submitWaiterOrder = onCall(callableOptions, async (request): Promise<SubmitOrderResult> => {
   const input = parseInput(submitWaiterOrderInput, request.data);
-  const staff = await requireStaff(request);
+  const staff = await requireStaff(request, input.branchId);
+  const refs = staff.refs;
   const scopedKey = scopeIdempotencyKey('submitWaiterOrder', input.tableId, input.idempotencyKey);
 
   return unwrap(
@@ -39,18 +40,18 @@ export const submitWaiterOrder = onCall(callableOptions, async (request): Promis
 
       // Every read first: the table, its session and the menu prices. Opening a
       // session is a write, so it cannot happen before the pricing reads.
-      const read = await readTableSession(tx, input.tableId);
+      const read = await readTableSession(refs, tx, input.tableId);
       if (!read.ok) return read;
-      const priced = await priceOrderLines(tx, input.items);
+      const priced = await priceOrderLines(refs, tx, input.items);
       if (!priced.ok) return priced;
       const {items, totalMinor} = priced.value;
-      const {sessionId, session} = ensureSession(tx, read.value);
+      const {sessionId, session} = ensureSession(refs, tx, read.value);
 
       const orderRef = refs.orders(sessionId).doc();
       // A waiter taking the order has already acknowledged it.
       const status: OrderStatus = 'accepted';
       tx.set(orderRef, {
-        restaurantId: refs.restaurant().id,
+        restaurantId: refs.branchId,
         sessionId,
         tableId: input.tableId,
         source: 'waiter',
@@ -65,7 +66,7 @@ export const submitWaiterOrder = onCall(callableOptions, async (request): Promis
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      applySessionTotals(tx, sessionId, {
+      applySessionTotals(refs, tx, sessionId, {
         chargeTotalMinor: session.chargeTotalMinor + totalMinor,
         paidMinor: session.paidMinor,
         adjustmentsMinor: session.adjustmentsMinor,
@@ -74,6 +75,7 @@ export const submitWaiterOrder = onCall(callableOptions, async (request): Promis
       const result: SubmitOrderResult = {orderId: orderRef.id, status, totalMinor};
       writeIdempotentResult(tx, scopedKey, 'submitWaiterOrder', result);
       audit(tx, {
+        branchId: refs.branchId,
         action: 'staff.order.submitted',
         actorType: 'staff',
         actorId: staff.uid,
@@ -92,7 +94,8 @@ export const submitWaiterOrder = onCall(callableOptions, async (request): Promis
  */
 export const updateOrderStatus = onCall(callableOptions, async (request): Promise<UpdateOrderStatusResult> => {
   const input = parseInput(updateOrderStatusInput, request.data);
-  const staff = await requireStaff(request);
+  const staff = await requireStaff(request, input.branchId);
+  const refs = staff.refs;
 
   return unwrap(
     await db.runTransaction(async (tx): Promise<TxResult<UpdateOrderStatusResult>> => {
@@ -114,9 +117,9 @@ export const updateOrderStatus = onCall(callableOptions, async (request): Promis
 
       // Cancelling removes the order's charge from what the table owes.
       if (input.nextStatus === 'cancelled' && isChargeable(order.status)) {
-        const sessionRead = await readOpenSession(tx, input.sessionId);
+        const sessionRead = await readOpenSession(refs, tx, input.sessionId);
         if (!sessionRead.ok) return sessionRead;
-        applySessionTotals(tx, input.sessionId, {
+        applySessionTotals(refs, tx, input.sessionId, {
           chargeTotalMinor: sessionRead.value.chargeTotalMinor - order.totalMinor,
           paidMinor: sessionRead.value.paidMinor,
           adjustmentsMinor: sessionRead.value.adjustmentsMinor,
@@ -137,6 +140,7 @@ export const updateOrderStatus = onCall(callableOptions, async (request): Promis
       });
 
       audit(tx, {
+        branchId: refs.branchId,
         action: 'staff.order.status',
         actorType: 'staff',
         actorId: staff.uid,
@@ -157,7 +161,8 @@ export const updateOrderStatus = onCall(callableOptions, async (request): Promis
  */
 export const recordManualPayment = onCall(callableOptions, async (request): Promise<RecordManualPaymentResult> => {
   const input = parseInput(recordManualPaymentInput, request.data);
-  const staff = await requireStaff(request);
+  const staff = await requireStaff(request, input.branchId);
+  const refs = staff.refs;
   const scopedKey = scopeIdempotencyKey('recordManualPayment', input.sessionId, input.idempotencyKey);
 
   return unwrap(
@@ -165,7 +170,7 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
       const replayed = await readIdempotentResult<RecordManualPaymentResult>(tx, scopedKey);
       if (replayed) return txOk(replayed);
 
-      const sessionRead = await readOpenSession(tx, input.sessionId);
+      const sessionRead = await readOpenSession(refs, tx, input.sessionId);
       if (!sessionRead.ok) return sessionRead;
       const session = sessionRead.value;
 
@@ -182,7 +187,7 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      const balanceMinor = applySessionTotals(tx, input.sessionId, {
+      const balanceMinor = applySessionTotals(refs, tx, input.sessionId, {
         chargeTotalMinor: session.chargeTotalMinor,
         paidMinor: session.paidMinor + input.amountMinor,
         adjustmentsMinor: session.adjustmentsMinor,
@@ -191,6 +196,7 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
       const result: RecordManualPaymentResult = {paymentId: paymentRef.id, balanceMinor};
       writeIdempotentResult(tx, scopedKey, 'recordManualPayment', result);
       audit(tx, {
+        branchId: refs.branchId,
         action: 'staff.payment.recorded',
         actorType: 'staff',
         actorId: staff.uid,
@@ -208,7 +214,8 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
  */
 export const reverseManualPayment = onCall(callableOptions, async (request): Promise<ReverseManualPaymentResult> => {
   const input = parseInput(reverseManualPaymentInput, request.data);
-  const staff = await requireAdmin(request);
+  const staff = await requireAdmin(request, input.branchId);
+  const refs = staff.refs;
   const scopedKey = scopeIdempotencyKey('reverseManualPayment', input.sessionId, input.idempotencyKey);
 
   return unwrap(
@@ -227,7 +234,7 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
         return txFail('failed-precondition', 'already-reversed', 'This payment was already reversed');
       }
 
-      const sessionRead = await readOpenSession(tx, input.sessionId);
+      const sessionRead = await readOpenSession(refs, tx, input.sessionId);
       if (!sessionRead.ok) return sessionRead;
       const session = sessionRead.value;
 
@@ -245,7 +252,7 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
       });
       tx.update(paymentRef, {reversedByReversalId: reversalRef.id, reversedAt: FieldValue.serverTimestamp()});
 
-      const balanceMinor = applySessionTotals(tx, input.sessionId, {
+      const balanceMinor = applySessionTotals(refs, tx, input.sessionId, {
         chargeTotalMinor: session.chargeTotalMinor,
         paidMinor: session.paidMinor - payment.amountMinor,
         adjustmentsMinor: session.adjustmentsMinor,
@@ -254,6 +261,7 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
       const result: ReverseManualPaymentResult = {reversalId: reversalRef.id, balanceMinor};
       writeIdempotentResult(tx, scopedKey, 'reverseManualPayment', result);
       audit(tx, {
+        branchId: refs.branchId,
         action: 'staff.payment.reversed',
         actorType: 'staff',
         actorId: staff.uid,
@@ -272,11 +280,12 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
  */
 export const closeDiningSession = onCall(callableOptions, async (request): Promise<CloseDiningSessionResult> => {
   const input = parseInput(closeDiningSessionInput, request.data);
-  const staff = await requireStaff(request);
+  const staff = await requireStaff(request, input.branchId);
+  const refs = staff.refs;
 
   return unwrap(
     await db.runTransaction(async (tx): Promise<TxResult<CloseDiningSessionResult>> => {
-      const sessionRead = await readOpenSession(tx, input.sessionId);
+      const sessionRead = await readOpenSession(refs, tx, input.sessionId);
       if (!sessionRead.ok) return sessionRead;
       const session = sessionRead.value;
 
@@ -294,7 +303,7 @@ export const closeDiningSession = onCall(callableOptions, async (request): Promi
         }
       }
 
-      await revokeSessionCapabilities(tx, input.sessionId);
+      await revokeSessionCapabilities(refs, tx, input.sessionId);
 
       const closedAt = Timestamp.now();
       tx.update(refs.session(input.sessionId), {
@@ -307,6 +316,7 @@ export const closeDiningSession = onCall(callableOptions, async (request): Promi
       tx.update(refs.table(session.tableId), {activeSessionId: null, lastSessionClosedAt: closedAt});
 
       audit(tx, {
+        branchId: refs.branchId,
         action: 'staff.session.closed',
         actorType: 'staff',
         actorId: staff.uid,
@@ -328,7 +338,8 @@ export const closeDiningSession = onCall(callableOptions, async (request): Promi
  */
 export const resolveServiceRequest = onCall(callableOptions, async (request): Promise<ResolveServiceRequestResult> => {
   const input = parseInput(resolveServiceRequestInput, request.data);
-  const staff = await requireStaff(request);
+  const staff = await requireStaff(request, input.branchId);
+  const refs = staff.refs;
 
   return unwrap(
     await db.runTransaction(async (tx): Promise<TxResult<ResolveServiceRequestResult>> => {
@@ -349,6 +360,7 @@ export const resolveServiceRequest = onCall(callableOptions, async (request): Pr
       });
 
       audit(tx, {
+        branchId: refs.branchId,
         action: 'staff.serviceRequest.resolved',
         actorType: 'staff',
         actorId: staff.uid,

@@ -77,7 +77,13 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // Secret material and server bookkeeping: no client may read these.
+      match /menuOverrides/{id} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      // Legacy locations, kept denied: these collections moved to the top
+      // level during the branch migration and nothing may read them here.
       match /qrTokens/{hash} {
         allow read, write: if false;
       }
@@ -90,6 +96,44 @@ service cloud.firestore {
       match /rateLimits/{key} {
         allow read, write: if false;
       }
+      match /auditLogs/{id} {
+        allow read: if admin(r);
+        allow write: if false;
+      }
+    }
+
+    // A branch is one restaurant location. Readable so an administrator can
+    // list and switch between the branches they hold; writes go through a
+    // callable like everything else.
+    match /branches/{branchId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Top-level secret material and server bookkeeping.
+    //
+    // QR tokens and guest capabilities are looked up by hash alone, so they
+    // cannot live inside a branch. That makes it all the more important that
+    // no client can read them: a readable qrTokens collection would let anyone
+    // enumerate every table's access credential.
+    match /qrTokens/{hash} {
+      allow read, write: if false;
+    }
+    match /guestCapabilities/{hash} {
+      allow read, write: if false;
+    }
+    match /idempotency/{key} {
+      allow read, write: if false;
+    }
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
+    // One audit trail across branches; each entry names the branch it belongs
+    // to, and only that branch's administrators may read it.
+    match /auditLogs/{id} {
+      allow read: if admin(resource.data.branchId);
+      allow write: if false;
     }
 
     // The staff board watches every open order across all tables with a

@@ -4,7 +4,7 @@
  * session rather than creating two.
  */
 import type {Transaction} from 'firebase-admin/firestore';
-import {refs, FieldValue, Timestamp, txOk, txFail, type TxResult, type SessionDoc} from './runtime';
+import {db, FieldValue, Timestamp, txOk, txFail, type TxResult, type SessionDoc, type Refs} from './runtime';
 import {sessionBalance} from '../../src/lib/order-domain';
 
 export type TableDoc = {
@@ -29,7 +29,7 @@ export type TableSessionRead = {
   session: SessionDoc | null;
 };
 
-export async function readTableSession(tx: Transaction, tableId: string): Promise<TxResult<TableSessionRead>> {
+export async function readTableSession(refs: Refs, tx: Transaction, tableId: string): Promise<TxResult<TableSessionRead>> {
   const tableSnapshot = await tx.get(refs.table(tableId));
   if (!tableSnapshot.exists) return txFail('not-found', 'invalid-qr', 'Table not found');
   const table = tableSnapshot.data() as TableDoc;
@@ -57,6 +57,7 @@ export async function readTableSession(tx: Transaction, tableId: string): Promis
  * transaction retries and both end up in a single session.
  */
 export function ensureSession(
+  refs: Refs,
   tx: Transaction,
   read: TableSessionRead,
 ): {sessionId: string; session: SessionDoc} {
@@ -75,7 +76,7 @@ export function ensureSession(
     balanceMinor: 0,
     version: 0,
   };
-  tx.set(sessionRef, {...session, restaurantId: refs.restaurant().id, openedAt: FieldValue.serverTimestamp()});
+  tx.set(sessionRef, {...session, restaurantId: refs.branchId, openedAt: FieldValue.serverTimestamp()});
   tx.update(refs.table(read.tableId), {
     activeSessionId: sessionRef.id,
     lastSessionOpenedAt: FieldValue.serverTimestamp(),
@@ -84,7 +85,7 @@ export function ensureSession(
   return {sessionId: sessionRef.id, session};
 }
 
-export async function readOpenSession(tx: Transaction, sessionId: string): Promise<TxResult<SessionDoc>> {
+export async function readOpenSession(refs: Refs, tx: Transaction, sessionId: string): Promise<TxResult<SessionDoc>> {
   const snapshot = await tx.get(refs.session(sessionId));
   if (!snapshot.exists) return txFail('not-found', 'session-closed', 'Dining session not found');
   const session = snapshot.data() as SessionDoc;
@@ -97,6 +98,7 @@ export async function readOpenSession(tx: Transaction, sessionId: string): Promi
  * never sent by a client.
  */
 export function applySessionTotals(
+  refs: Refs,
   tx: Transaction,
   sessionId: string,
   totals: {chargeTotalMinor: number; paidMinor: number; adjustmentsMinor: number},
@@ -114,9 +116,16 @@ export function applySessionTotals(
 }
 
 /** Revokes every guest capability for a session, so a reset table drops access. */
-export async function revokeSessionCapabilities(tx: Transaction, sessionId: string): Promise<void> {
+export async function revokeSessionCapabilities(refs: Refs, tx: Transaction, sessionId: string): Promise<void> {
+  // Capabilities are top level (they are looked up by hash alone), so the
+  // query is filtered by branch as well as session: two branches could both
+  // hold a session document with the same generated id.
   const capabilities = await tx.get(
-    refs.restaurant().collection('guestCapabilities').where('sessionId', '==', sessionId).where('revoked', '==', false),
+    db
+      .collection('guestCapabilities')
+      .where('branchId', '==', refs.branchId)
+      .where('sessionId', '==', sessionId)
+      .where('revoked', '==', false),
   );
   for (const doc of capabilities.docs) {
     tx.update(doc.ref, {revoked: true, revokedAt: FieldValue.serverTimestamp()});

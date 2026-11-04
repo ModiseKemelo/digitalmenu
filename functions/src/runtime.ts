@@ -33,31 +33,70 @@ export {REGION};
 
 export const callableOptions = {enforceAppCheck: !IS_EMULATOR, region: REGION} as const;
 
-const restaurant = () => db.collection('restaurants').doc(RESTAURANT_ID);
+/**
+ * Branch-scoped document references.
+ *
+ * A branch is one restaurant location. Its operational data stays under
+ * `restaurants/{branchId}`, so the Firestore rules — which already take a
+ * restaurant id — keep working unchanged.
+ */
+const branchDoc = (branchId: string) => db.collection('restaurants').doc(branchId);
 
-export const refs = {
-  restaurant,
-  categories: () => restaurant().collection('categories'),
-  menuItems: () => restaurant().collection('menuItems'),
-  tables: () => restaurant().collection('tables'),
-  table: (tableId: string) => restaurant().collection('tables').doc(tableId),
-  sessions: () => restaurant().collection('sessions'),
-  session: (sessionId: string) => restaurant().collection('sessions').doc(sessionId),
-  orders: (sessionId: string) => refs.session(sessionId).collection('orders'),
-  order: (sessionId: string, orderId: string) => refs.orders(sessionId).doc(orderId),
-  payments: (sessionId: string) => refs.session(sessionId).collection('payments'),
-  payment: (sessionId: string, paymentId: string) => refs.payments(sessionId).doc(paymentId),
-  guestAccess: (sessionId: string) => refs.session(sessionId).collection('guestAccess'),
-  staff: (uid: string) => restaurant().collection('staff').doc(uid),
-  serviceRequests: () => restaurant().collection('serviceRequests'),
-  auditLogs: () => restaurant().collection('auditLogs'),
+export const refsFor = (branchId: string) => ({
+  branchId,
+  restaurant: () => branchDoc(branchId),
+  categories: () => branchDoc(branchId).collection('categories'),
+  menuItems: () => branchDoc(branchId).collection('menuItems'),
+  menuOverrides: () => branchDoc(branchId).collection('menuOverrides'),
+  tables: () => branchDoc(branchId).collection('tables'),
+  table: (tableId: string) => branchDoc(branchId).collection('tables').doc(tableId),
+  sessions: () => branchDoc(branchId).collection('sessions'),
+  session: (sessionId: string) => branchDoc(branchId).collection('sessions').doc(sessionId),
+  orders: (sessionId: string) => branchDoc(branchId).collection('sessions').doc(sessionId).collection('orders'),
+  order: (sessionId: string, orderId: string) =>
+    branchDoc(branchId).collection('sessions').doc(sessionId).collection('orders').doc(orderId),
+  payments: (sessionId: string) => branchDoc(branchId).collection('sessions').doc(sessionId).collection('payments'),
+  payment: (sessionId: string, paymentId: string) =>
+    branchDoc(branchId).collection('sessions').doc(sessionId).collection('payments').doc(paymentId),
+  guestAccess: (sessionId: string) => branchDoc(branchId).collection('sessions').doc(sessionId).collection('guestAccess'),
+  staff: (uid: string) => branchDoc(branchId).collection('staff').doc(uid),
+  staffMembers: () => branchDoc(branchId).collection('staff'),
+  serviceRequests: () => branchDoc(branchId).collection('serviceRequests'),
+  guestCapabilitiesForBranch: () => db.collection('guestCapabilities').where('branchId', '==', branchId),
+});
+
+export type Refs = ReturnType<typeof refsFor>;
+
+/**
+ * References that are NOT scoped to a branch.
+ *
+ * QR tokens and guest capabilities are looked up by hash alone: a guest
+ * scanning a printed card supplies only the token, so there is no branch to
+ * scope the lookup to. They therefore live at the top level and carry a
+ * `branchId` field, which is what tells the rest of a request which branch it
+ * is operating on. Keeping the hash as the document id is also what lets
+ * already-printed /t/<token> cards survive the move.
+ *
+ * Idempotency records, rate-limit buckets and audit logs are top level for a
+ * different reason: their keys already include the owner, a rate limit on QR
+ * guessing has to apply before any branch is known, and one audit trail across
+ * branches is more useful to an administrator than several.
+ */
+export const globalRefs = {
+  branches: () => db.collection('branches'),
+  branch: (branchId: string) => db.collection('branches').doc(branchId),
   /** Hash -> table lookup, so a raw QR token is never stored or enumerable. */
-  qrToken: (tokenHash: string) => restaurant().collection('qrTokens').doc(tokenHash),
+  qrToken: (tokenHash: string) => db.collection('qrTokens').doc(tokenHash),
   /** Hash -> guest capability lookup, keyed by hash so the raw value is never stored. */
-  capability: (capabilityHash: string) => restaurant().collection('guestCapabilities').doc(capabilityHash),
-  idempotency: (scopedKey: string) => restaurant().collection('idempotency').doc(scopedKey),
-  rateLimit: (key: string) => restaurant().collection('rateLimits').doc(key),
+  capability: (capabilityHash: string) => db.collection('guestCapabilities').doc(capabilityHash),
+  idempotency: (scopedKey: string) => db.collection('idempotency').doc(scopedKey),
+  rateLimit: (key: string) => db.collection('rateLimits').doc(key),
+  auditLogs: () => db.collection('auditLogs'),
 };
+
+/** The default branch, for the single-branch deployment and for scripts. */
+export const DEFAULT_BRANCH_ID = RESTAURANT_ID;
+export const refs = refsFor(DEFAULT_BRANCH_ID);
 
 /** Structured error codes, so clients can react without parsing messages. */
 export type ErrorCode =

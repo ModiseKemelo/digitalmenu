@@ -4,14 +4,15 @@
  * or leaked database cannot be used to forge table access.
  */
 import {onCall} from 'firebase-functions/v2/https';
-import {db, refs, callableOptions, BASE_URL, FieldValue, parseInput, txOk, txFail, unwrap, type TxResult} from './runtime';
+import {db, globalRefs, callableOptions, BASE_URL, FieldValue, parseInput, txOk, txFail, unwrap, type TxResult} from './runtime';
 import {rotateTableQrTokenInput, type RotateTableQrTokenResult} from '../../src/lib/contracts';
 import {requireAdmin, mintToken, hashToken, audit} from './security';
 import type {TableDoc} from './sessions';
 
 export const rotateTableQrToken = onCall(callableOptions, async (request): Promise<RotateTableQrTokenResult> => {
   const input = parseInput(rotateTableQrTokenInput, request.data);
-  const staff = await requireAdmin(request);
+  const staff = await requireAdmin(request, input.branchId);
+  const refs = staff.refs;
 
   const token = mintToken();
   const tokenHash = hashToken(token);
@@ -26,10 +27,14 @@ export const rotateTableQrToken = onCall(callableOptions, async (request): Promi
       // Revoke rather than delete, so a scan of an old printed label is logged
       // as a replaced code instead of an unknown one.
       if (table.qrTokenHash) {
-        tx.update(refs.qrToken(table.qrTokenHash), {revoked: true, revokedAt: FieldValue.serverTimestamp()});
+        tx.update(globalRefs.qrToken(table.qrTokenHash), {revoked: true, revokedAt: FieldValue.serverTimestamp()});
       }
 
-      tx.set(refs.qrToken(tokenHash), {
+      // The branch is stamped on the token because a scan supplies the hash
+      // and nothing else: this field is what tells resolveTableQr which
+      // branch's tables and menu to use.
+      tx.set(globalRefs.qrToken(tokenHash), {
+        branchId: refs.branchId,
         tableId: input.tableId,
         version: nextVersion,
         revoked: false,
@@ -43,6 +48,7 @@ export const rotateTableQrToken = onCall(callableOptions, async (request): Promi
       });
 
       audit(tx, {
+        branchId: refs.branchId,
         action: 'admin.qr.rotated',
         actorType: 'staff',
         actorId: staff.uid,

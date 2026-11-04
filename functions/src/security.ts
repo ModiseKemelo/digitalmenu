@@ -9,7 +9,7 @@
 import {randomBytes, createHash, timingSafeEqual} from 'node:crypto';
 import type {CallableRequest} from 'firebase-functions/v2/https';
 import type {Transaction} from 'firebase-admin/firestore';
-import {db, refs, fail, FieldValue, Timestamp, nowMs} from './runtime';
+import {db, refsFor, globalRefs, fail, FieldValue, Timestamp, nowMs, DEFAULT_BRANCH_ID, type Refs} from './runtime';
 import {GUEST_CAPABILITY_TTL_MS, type StaffRole} from '../../src/lib/contracts';
 
 const TOKEN_BYTES = 32;
@@ -31,7 +31,7 @@ export function secretEquals(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-export type StaffContext = {uid: string; role: StaffRole; name: string};
+export type StaffContext = {uid: string; role: StaffRole; name: string; branchId: string; refs: Refs};
 
 /**
  * A Firebase Auth user is not staff. Membership and role are read from the
@@ -39,24 +39,28 @@ export type StaffContext = {uid: string; role: StaffRole; name: string};
  * staff document revokes access immediately (T15) without waiting for a token
  * to expire.
  */
-export async function requireStaff(request: CallableRequest): Promise<StaffContext> {
+export async function requireStaff(request: CallableRequest, branchId = DEFAULT_BRANCH_ID): Promise<StaffContext> {
   const uid = request.auth?.uid;
   if (!uid) fail('unauthenticated', 'not-staff', 'Staff sign-in required');
+  // Membership is per branch: a staff document exists in each branch the
+  // person may work in, so holding several is how an administrator covers more
+  // than one location, and losing one revokes exactly that location.
+  const refs = refsFor(branchId);
   const snapshot = await refs.staff(uid).get();
   if (!snapshot.exists) fail('permission-denied', 'not-staff', 'No staff record for this account');
   const data = snapshot.data() as {active?: boolean; role?: StaffRole; name?: string};
   if (data.active !== true) fail('permission-denied', 'not-staff', 'Staff account is not active');
   if (data.role !== 'waiter' && data.role !== 'admin') fail('permission-denied', 'not-staff', 'Staff role is not recognised');
-  return {uid, role: data.role, name: data.name ?? uid};
+  return {uid, role: data.role, name: data.name ?? uid, branchId, refs};
 }
 
-export async function requireAdmin(request: CallableRequest): Promise<StaffContext> {
-  const staff = await requireStaff(request);
+export async function requireAdmin(request: CallableRequest, branchId = DEFAULT_BRANCH_ID): Promise<StaffContext> {
+  const staff = await requireStaff(request, branchId);
   if (staff.role !== 'admin') fail('permission-denied', 'not-admin', 'Administrator role required');
   return staff;
 }
 
-export type GuestContext = {sessionId: string; guestId: string; tableId: string};
+export type GuestContext = {branchId: string; refs: Refs; sessionId: string; guestId: string; tableId: string};
 
 /**
  * Resolves a raw guest capability to its session. Expired or revoked
@@ -64,9 +68,10 @@ export type GuestContext = {sessionId: string; guestId: string; tableId: string}
  * from reading the previous party's orders (T12).
  */
 export async function requireGuest(capability: string): Promise<GuestContext> {
-  const snapshot = await refs.capability(hashToken(capability)).get();
+  const snapshot = await globalRefs.capability(hashToken(capability)).get();
   if (!snapshot.exists) fail('permission-denied', 'capability-revoked', 'Guest session is no longer valid');
   const data = snapshot.data() as {
+    branchId?: string;
     sessionId: string;
     guestId: string;
     tableId: string;
@@ -75,20 +80,25 @@ export async function requireGuest(capability: string): Promise<GuestContext> {
   };
   if (data.revoked) fail('permission-denied', 'capability-revoked', 'Guest session was closed');
   if (data.expiresAt.toMillis() <= nowMs()) fail('permission-denied', 'capability-expired', 'Guest session expired; rescan the table QR code');
-  return {sessionId: data.sessionId, guestId: data.guestId, tableId: data.tableId};
+  // Capabilities issued before the branch migration carry no branchId; they
+  // belong to the original branch by definition.
+  const branchId = data.branchId ?? DEFAULT_BRANCH_ID;
+  return {branchId, refs: refsFor(branchId), sessionId: data.sessionId, guestId: data.guestId, tableId: data.tableId};
 }
 
 /** Issues a fresh capability for a session. Returns the raw value exactly once. */
 export function issueCapability(
   tx: Transaction,
-  input: {sessionId: string; tableId: string},
+  input: {branchId: string; sessionId: string; tableId: string},
 ): {capability: string; guestId: string; expiresAtMs: number} {
+  const refs = refsFor(input.branchId);
   const capability = mintToken();
   const guestId = refs.guestAccess(input.sessionId).doc().id;
   const expiresAtMs = nowMs() + GUEST_CAPABILITY_TTL_MS;
   const expiresAt = Timestamp.fromMillis(expiresAtMs);
 
-  tx.set(refs.capability(hashToken(capability)), {
+  tx.set(globalRefs.capability(hashToken(capability)), {
+    branchId: input.branchId,
     sessionId: input.sessionId,
     tableId: input.tableId,
     guestId,
@@ -118,7 +128,7 @@ export function issueCapability(
  * would abort the write that records the attempt.
  */
 export async function consumeRateLimit(key: string, limit: number, windowMs: number): Promise<void> {
-  const ref = refs.rateLimit(createHash('sha256').update(key).digest('hex'));
+  const ref = globalRefs.rateLimit(createHash('sha256').update(key).digest('hex'));
   const allowed = await db.runTransaction(async (tx) => {
     const snapshot = await tx.get(ref);
     const now = nowMs();
@@ -144,19 +154,33 @@ export function scopeIdempotencyKey(scope: string, owner: string, key: string): 
  * any write in that transaction.
  */
 export async function readIdempotentResult<T>(tx: Transaction, scopedKey: string): Promise<T | undefined> {
-  const snapshot = await tx.get(refs.idempotency(scopedKey));
+  const snapshot = await tx.get(globalRefs.idempotency(scopedKey));
   if (!snapshot.exists) return undefined;
   return (snapshot.data() as {result: T}).result;
 }
 
 export function writeIdempotentResult<T>(tx: Transaction, scopedKey: string, scope: string, result: T): void {
-  tx.set(refs.idempotency(scopedKey), {scope, result, createdAt: FieldValue.serverTimestamp()});
+  tx.set(globalRefs.idempotency(scopedKey), {scope, result, createdAt: FieldValue.serverTimestamp()});
 }
 
 /** Append-only attribution for every privileged mutation. */
 export function audit(
   tx: Transaction,
-  entry: {action: string; actorType: 'guest' | 'staff' | 'system'; actorId: string; targetPath?: string; detail?: Record<string, unknown>},
+  entry: {
+    branchId?: string;
+    action: string;
+    actorType: 'guest' | 'staff' | 'system';
+    actorId: string;
+    targetPath?: string;
+    detail?: Record<string, unknown>;
+  },
 ): void {
-  tx.set(refs.auditLogs().doc(), {...entry, at: FieldValue.serverTimestamp()});
+  // One trail across branches is more useful to an administrator than one per
+  // branch, so the entry records which branch it belongs to and the rules gate
+  // reads on that field.
+  tx.set(globalRefs.auditLogs().doc(), {
+    branchId: DEFAULT_BRANCH_ID,
+    ...entry,
+    at: FieldValue.serverTimestamp(),
+  });
 }

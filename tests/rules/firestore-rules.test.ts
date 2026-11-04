@@ -29,6 +29,14 @@ const path = {
   qrToken: (hash: string) => `restaurants/${RESTAURANT}/qrTokens/${hash}`,
   capability: (hash: string) => `restaurants/${RESTAURANT}/guestCapabilities/${hash}`,
   idempotency: (key: string) => `restaurants/${RESTAURANT}/idempotency/${key}`,
+  // Top level after the branch migration: a QR token is looked up by hash
+  // alone, so it cannot live inside a branch.
+  rootQrToken: (hash: string) => `qrTokens/${hash}`,
+  rootCapability: (hash: string) => `guestCapabilities/${hash}`,
+  rootIdempotency: (key: string) => `idempotency/${key}`,
+  rootRateLimit: (key: string) => `rateLimits/${key}`,
+  rootAudit: (id: string) => `auditLogs/${id}`,
+  branch: (id: string) => `branches/${id}`,
 };
 
 beforeAll(async () => {
@@ -63,6 +71,13 @@ beforeEach(async () => {
     await setDoc(doc(db, path.staff('waiter-uid')), {name: 'Waiter', role: 'waiter', active: true});
     await setDoc(doc(db, path.staff('admin-uid')), {name: 'Admin', role: 'admin', active: true});
     await setDoc(doc(db, path.staff('exwaiter-uid')), {name: 'Ex', role: 'waiter', active: false});
+    await setDoc(doc(db, path.rootQrToken('hash')), {branchId: RESTAURANT, tableId: 'TBL-001', revoked: false});
+    await setDoc(doc(db, path.rootCapability('caphash')), {branchId: RESTAURANT, sessionId: 'S1', revoked: false});
+    await setDoc(doc(db, path.rootIdempotency('key1')), {result: {}});
+    await setDoc(doc(db, path.rootRateLimit('rl1')), {hits: []});
+    await setDoc(doc(db, path.rootAudit('RA1')), {branchId: RESTAURANT, action: 'test'});
+    await setDoc(doc(db, path.rootAudit('OTHER')), {branchId: 'other-branch', action: 'test'});
+    await setDoc(doc(db, path.branch(RESTAURANT)), {name: 'Bukhara Main', enabled: true});
   });
 });
 
@@ -177,5 +192,52 @@ describe('staff reads', () => {
     await assertSucceeds(getDoc(doc(signedIn('waiter-uid'), path.staff('waiter-uid'))));
     await assertFails(getDoc(doc(signedIn('waiter-uid'), path.staff('admin-uid'))));
     await assertSucceeds(getDoc(doc(signedIn('admin-uid'), path.staff('waiter-uid'))));
+  });
+});
+
+/**
+ * The branch migration moved QR tokens, guest capabilities and the audit trail
+ * to the database root. Rules are not inherited across that move, so each new
+ * location needs its own assertion — a readable top-level qrTokens collection
+ * would let anyone enumerate every table's access credential and seat
+ * themselves at any table in any branch.
+ */
+describe('top-level collections after the branch migration', () => {
+  it('hides QR token hashes from everyone, staff included', async () => {
+    await assertFails(getDoc(doc(guest(), path.rootQrToken('hash'))));
+    await assertFails(getDoc(doc(signedIn('waiter-uid'), path.rootQrToken('hash'))));
+    await assertFails(getDoc(doc(signedIn('admin-uid'), path.rootQrToken('hash'))));
+    await assertFails(getDocs(collection(guest(), 'qrTokens')));
+  });
+
+  it('hides guest capabilities from everyone', async () => {
+    await assertFails(getDoc(doc(guest(), path.rootCapability('caphash'))));
+    await assertFails(getDoc(doc(signedIn('admin-uid'), path.rootCapability('caphash'))));
+    await assertFails(getDocs(collection(guest(), 'guestCapabilities')));
+  });
+
+  it('hides server bookkeeping from everyone', async () => {
+    await assertFails(getDoc(doc(signedIn('admin-uid'), path.rootIdempotency('key1'))));
+    await assertFails(getDoc(doc(signedIn('admin-uid'), path.rootRateLimit('rl1'))));
+  });
+
+  it('denies writes to every top-level collection', async () => {
+    await assertFails(setDoc(doc(guest(), path.rootQrToken('forged')), {tableId: 'TBL-001'}));
+    await assertFails(setDoc(doc(signedIn('admin-uid'), path.rootQrToken('forged')), {tableId: 'TBL-001'}));
+    await assertFails(setDoc(doc(signedIn('admin-uid'), path.branch('new-branch')), {name: 'Forged'}));
+    await assertFails(deleteDoc(doc(signedIn('admin-uid'), path.rootAudit('RA1'))));
+  });
+
+  // An administrator of one branch must not read another branch's trail.
+  it('scopes audit reads to the branch the entry belongs to', async () => {
+    await assertSucceeds(getDoc(doc(signedIn('admin-uid'), path.rootAudit('RA1'))));
+    await assertFails(getDoc(doc(signedIn('waiter-uid'), path.rootAudit('RA1'))));
+    await assertFails(getDoc(doc(signedIn('admin-uid'), path.rootAudit('OTHER'))));
+    await assertFails(getDoc(doc(guest(), path.rootAudit('RA1'))));
+  });
+
+  it('lets a signed-in staff member list branches but not an anonymous guest', async () => {
+    await assertSucceeds(getDoc(doc(signedIn('waiter-uid'), path.branch(RESTAURANT))));
+    await assertFails(getDoc(doc(guest(), path.branch(RESTAURANT))));
   });
 });

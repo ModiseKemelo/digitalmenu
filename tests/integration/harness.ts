@@ -103,7 +103,9 @@ export const mintToken = () => randomBytes(32).toString('base64url');
 export async function seedTable(tableId: string, label = tableId, enabled = true): Promise<string> {
   const token = mintToken();
   const tokenHash = hashToken(token);
-  await restaurant().collection('qrTokens').doc(tokenHash).set({tableId, version: 1, revoked: false});
+  // QR tokens are top level and carry their branch: a scan supplies the hash
+  // alone, so there is no branch to scope the lookup to.
+  await admin().collection('qrTokens').doc(tokenHash).set({branchId: RESTAURANT_ID, tableId, version: 1, revoked: false});
   await restaurant().collection('tables').doc(tableId).set({
     label,
     enabled,
@@ -149,18 +151,21 @@ export const key = () => randomBytes(18).toString('base64url');
  * stalls once a few hundred documents have accumulated, which hung the suite.
  * Explicit batched deletes of the known collections are fast and deterministic.
  */
-const TOP_LEVEL_COLLECTIONS = [
+/** Collections under restaurants/{branchId}. */
+const BRANCH_COLLECTIONS = [
   'menuItems',
   'categories',
+  'menuOverrides',
   'tables',
-  'qrTokens',
-  'guestCapabilities',
-  'idempotency',
-  'rateLimits',
   'serviceRequests',
-  'auditLogs',
   'staff',
 ];
+
+/**
+ * Collections at the database root. QR tokens and capabilities are keyed by
+ * hash alone; the rest is bookkeeping whose keys already embed their owner.
+ */
+const ROOT_COLLECTIONS = ['qrTokens', 'guestCapabilities', 'idempotency', 'rateLimits', 'auditLogs', 'branches'];
 
 const SESSION_SUBCOLLECTIONS = ['orders', 'payments', 'guestAccess'];
 
@@ -183,8 +188,11 @@ export async function resetRestaurant(): Promise<void> {
     }
   }
   await deleteCollection(restaurant().collection('sessions'));
-  for (const name of TOP_LEVEL_COLLECTIONS) {
+  for (const name of BRANCH_COLLECTIONS) {
     await deleteCollection(restaurant().collection(name));
+  }
+  for (const name of ROOT_COLLECTIONS) {
+    await deleteCollection(admin().collection(name));
   }
 }
 
