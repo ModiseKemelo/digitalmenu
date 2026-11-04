@@ -11,11 +11,13 @@ import {
   recordManualPaymentInput,
   reverseManualPaymentInput,
   closeDiningSessionInput,
+  resolveServiceRequestInput,
   type SubmitOrderResult,
   type UpdateOrderStatusResult,
   type RecordManualPaymentResult,
   type ReverseManualPaymentResult,
   type CloseDiningSessionResult,
+  type ResolveServiceRequestResult,
   type OrderStatus,
   type PaymentMethod,
 } from '../../src/lib/contracts';
@@ -313,6 +315,48 @@ export const closeDiningSession = onCall(callableOptions, async (request): Promi
       });
 
       return txOk({closedAt: closedAt.toMillis()});
+    }),
+  );
+});
+
+/**
+ * Marks a guest's service call handled.
+ *
+ * Done in a transaction so two waiters tapping "mark done" at the same moment
+ * cannot both claim it: the second sees the request already resolved and is
+ * told so, rather than silently overwriting the first waiter's attribution.
+ */
+export const resolveServiceRequest = onCall(callableOptions, async (request): Promise<ResolveServiceRequestResult> => {
+  const input = parseInput(resolveServiceRequestInput, request.data);
+  const staff = await requireStaff(request);
+
+  return unwrap(
+    await db.runTransaction(async (tx): Promise<TxResult<ResolveServiceRequestResult>> => {
+      const ref = refs.serviceRequests().doc(input.requestId);
+      const snapshot = await tx.get(ref);
+      if (!snapshot.exists) return txFail('not-found', 'invalid-request', 'That service request no longer exists');
+
+      const data = snapshot.data() as {status: string; type: string; tableId: string};
+      if (data.status !== 'open') {
+        return txFail('failed-precondition', 'already-resolved', 'That request has already been handled');
+      }
+
+      const resolvedAt = Timestamp.now();
+      tx.update(ref, {
+        status: 'resolved',
+        resolvedAt: FieldValue.serverTimestamp(),
+        resolvedBy: staff.uid,
+      });
+
+      audit(tx, {
+        action: 'staff.serviceRequest.resolved',
+        actorType: 'staff',
+        actorId: staff.uid,
+        targetPath: ref.path,
+        detail: {type: data.type, tableId: data.tableId},
+      });
+
+      return txOk({requestId: input.requestId, resolvedAt: resolvedAt.toMillis()});
     }),
   );
 });

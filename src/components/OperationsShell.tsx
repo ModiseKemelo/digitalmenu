@@ -3,13 +3,15 @@
 import type {ReactNode} from 'react';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Armchair, ChartNoAxesCombined, LayoutDashboard, ListOrdered, QrCode, ScanLine, Settings, Users} from 'lucide-react';
+import {Armchair, Bell, ChartNoAxesCombined, LayoutDashboard, ListOrdered, NotebookPen, QrCode, ScanLine, Settings, Users} from 'lucide-react';
 import Brand from './Brand';
 
 type NavLink = {href: string; label: string; icon: typeof ListOrdered; disabled?: boolean};
 
 const staffLinks: NavLink[] = [
   {href: '/staff', label: 'Live orders', icon: ListOrdered},
+  {href: '/staff/requests', label: 'Service calls', icon: Bell},
+  {href: '/staff/order/new', label: 'Take an order', icon: NotebookPen},
   {href: '/staff/scan', label: 'Open a table', icon: ScanLine},
 ];
 

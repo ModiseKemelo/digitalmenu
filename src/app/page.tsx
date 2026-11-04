@@ -34,6 +34,7 @@ export default function Home() {
           <p className="eyebrow">Dining with us?</p>
           <h2>Scan your table</h2>
           <p>Each table has its own secure QR code. Scan it to open the menu and order directly from your seat.</p>
+          <Link href="/scan" className="btn">Scan my table code</Link>
         </div>
         <div className="qr-art" aria-hidden><QrCode size={82} strokeWidth={1.2} /></div>
       </section>

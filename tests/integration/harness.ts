@@ -57,12 +57,34 @@ export async function expectFailure<TInput>(name: string, data: TInput): Promise
   throw new Error(`Expected ${name} to fail, but it succeeded`);
 }
 
+/**
+ * Signs in as a staff account, creating it on first use.
+ *
+ * The Auth emulator leaves the previously signed-in user in the SDK's memory.
+ * Creating the next account makes the SDK reload that stale user, and the
+ * emulator has often already invalidated its token — which surfaces as
+ * `auth/user-token-expired` thrown from the *new* sign-in, failing whichever
+ * test happened to run at that moment. Signing out first makes each sign-in
+ * independent, and the retry covers the race that remains.
+ */
 export async function signInAs(email: string, password = 'emulator-password'): Promise<string> {
   const auth = getAuth(client());
-  const credential = await createUserWithEmailAndPassword(auth, email, password).catch(() =>
-    signInWithEmailAndPassword(auth, email, password),
-  );
-  return credential.user.uid;
+  await signOut(auth).catch(() => undefined);
+
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password).catch(() =>
+        signInWithEmailAndPassword(auth, email, password),
+      );
+      return credential.user.uid;
+    } catch (error) {
+      const code = (error as {code?: string}).code;
+      if (code !== 'auth/user-token-expired' || attempt === attempts) throw error;
+      await signOut(auth).catch(() => undefined);
+    }
+  }
+  throw new Error('unreachable');
 }
 
 export async function signOutStaff(): Promise<void> {

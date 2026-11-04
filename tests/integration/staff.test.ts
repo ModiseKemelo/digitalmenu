@@ -379,6 +379,84 @@ describe('closing a table', () => {
   });
 });
 
+describe('service request resolution', () => {
+  // Without this callable the queue screen can display a guest's call but
+  // never clear it, because Firestore denies all client writes.
+  it('marks an open request resolved and attributes it', async () => {
+    const token = await seedTable('TBL-150');
+    const guest = await resolve(token);
+    await callFn('submitGuestOrder', {
+      capability: guest.capability,
+      items: [{itemId: 'curry', quantity: 1}],
+      idempotencyKey: key(),
+    });
+    const created = await callFn<unknown, {requestId: string}>('createServiceRequest', {
+      capability: guest.capability,
+      type: 'bill',
+    });
+
+    const uid = await signInAs('resolver@example.com');
+    await makeStaff(uid, 'waiter');
+    await callFn('resolveServiceRequest', {requestId: created.requestId});
+
+    const document = await restaurant().collection('serviceRequests').doc(created.requestId).get();
+    expect(document.data()?.status).toBe('resolved');
+    expect(document.data()?.resolvedBy).toBe(uid);
+    expect(document.data()?.resolvedAt).toBeTruthy();
+
+    const logs = await restaurant().collection('auditLogs').get();
+    const resolved = logs.docs.filter((doc) => doc.data().action === 'staff.serviceRequest.resolved');
+    expect(resolved.some((doc) => (doc.data().targetPath ?? '').includes(created.requestId))).toBe(true);
+  });
+
+  // Two waiters tapping "mark done" at once must not both claim the request.
+  it('refuses to resolve the same request twice', async () => {
+    const token = await seedTable('TBL-151');
+    const guest = await resolve(token);
+    await callFn('submitGuestOrder', {
+      capability: guest.capability,
+      items: [{itemId: 'curry', quantity: 1}],
+      idempotencyKey: key(),
+    });
+    const created = await callFn<unknown, {requestId: string}>('createServiceRequest', {
+      capability: guest.capability,
+      type: 'bill',
+    });
+
+    const uid = await signInAs('resolver2@example.com');
+    await makeStaff(uid, 'waiter');
+    await callFn('resolveServiceRequest', {requestId: created.requestId});
+
+    const failure = await expectFailure('resolveServiceRequest', {requestId: created.requestId});
+    expect(failure.details?.code).toBe('already-resolved');
+  });
+
+  it('rejects a caller who is not staff', async () => {
+    const token = await seedTable('TBL-152');
+    const guest = await resolve(token);
+    await callFn('submitGuestOrder', {
+      capability: guest.capability,
+      items: [{itemId: 'curry', quantity: 1}],
+      idempotencyKey: key(),
+    });
+    const created = await callFn<unknown, {requestId: string}>('createServiceRequest', {
+      capability: guest.capability,
+      type: 'bill',
+    });
+
+    await signOutStaff();
+    const failure = await expectFailure('resolveServiceRequest', {requestId: created.requestId});
+    expect(failure.details?.code).toBe('not-staff');
+  });
+
+  it('reports a request that no longer exists', async () => {
+    const uid = await signInAs('resolver3@example.com');
+    await makeStaff(uid, 'waiter');
+    const failure = await expectFailure('resolveServiceRequest', {requestId: 'no-such-request'});
+    expect(failure.details?.code).toBe('invalid-request');
+  });
+});
+
 describe('audit trail', () => {
   // Acceptance criterion 9: staff actions are attributed and auditable.
   it('attributes every privileged action', async () => {

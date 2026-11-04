@@ -59,6 +59,7 @@ export default function GuestChrome({
           <Notice tone="warn">
             Your table session has ended or expired. Please scan the QR code on your table again to see the menu and order.
           </Notice>
+          <Link href="/scan" className="btn">Scan my table code</Link>
         </div>
       </main>
     );

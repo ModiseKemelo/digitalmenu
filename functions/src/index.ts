@@ -12,5 +12,5 @@ import {callableOptions} from './runtime';
 export const healthcheck = onCall(callableOptions, async () => ({status: 'ok', service: 'bukhara-functions'}));
 
 export {resolveTableQr, submitGuestOrder, getGuestSessionView, createServiceRequest} from './guest';
-export {submitWaiterOrder, updateOrderStatus, recordManualPayment, reverseManualPayment, closeDiningSession} from './staff';
+export {submitWaiterOrder, updateOrderStatus, recordManualPayment, reverseManualPayment, closeDiningSession, resolveServiceRequest} from './staff';
 export {rotateTableQrToken} from './admin';

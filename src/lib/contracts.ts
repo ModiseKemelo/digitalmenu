@@ -47,6 +47,7 @@ export const resolveTableQrInput = z.object({token: opaqueToken});
 export const submitGuestOrderInput = z.object({capability: opaqueToken, items: orderLines, idempotencyKey});
 export const guestSessionViewInput = z.object({capability: opaqueToken});
 export const createServiceRequestInput = z.object({capability: opaqueToken, type: z.enum(SERVICE_REQUEST_TYPES)});
+export const resolveServiceRequestInput = z.object({requestId: docId});
 export const submitWaiterOrderInput = z.object({tableId: docId, items: orderLines, idempotencyKey});
 export const updateOrderStatusInput = z.object({
   sessionId: docId,
@@ -83,6 +84,7 @@ export type ReverseManualPaymentInput = z.infer<typeof reverseManualPaymentInput
 export type CloseDiningSessionInput = z.infer<typeof closeDiningSessionInput>;
 export type RotateTableQrTokenInput = z.infer<typeof rotateTableQrTokenInput>;
 export type CreateServiceRequestInput = z.infer<typeof createServiceRequestInput>;
+export type ResolveServiceRequestInput = z.infer<typeof resolveServiceRequestInput>;
 
 export type ResolveTableQrResult = {
   tableLabel: string;
@@ -108,6 +110,7 @@ export type RecordManualPaymentResult = {paymentId: string; balanceMinor: number
 export type ReverseManualPaymentResult = {reversalId: string; balanceMinor: number};
 export type CloseDiningSessionResult = {closedAt: number};
 export type CreateServiceRequestResult = {requestId: string};
+export type ResolveServiceRequestResult = {requestId: string; resolvedAt: number};
 export type RotateTableQrTokenResult = {tableId: string; printableQrPayload: string; tokenVersion: number};
 
 export type GuestSessionView = {
