@@ -122,4 +122,11 @@ export type GuestSessionView = {
     items: {name: string; quantity: number; lineTotalMinor: number; notes: string}[];
   }[];
   ownTotalMinor: number;
+  /**
+   * Whether the table owes anything at all. A flag, not an amount: it gates the
+   * "request the bill" action without disclosing what the rest of the party
+   * spent. True when any guest at the table has an uncancelled order, so a
+   * guest who has ordered nothing can still ask for the table's bill.
+   */
+  tableHasChargeableOrders: boolean;
 };

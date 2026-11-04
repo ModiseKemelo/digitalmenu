@@ -141,6 +141,7 @@ export const getGuestSessionView = onCall(callableOptions, async (request): Prom
     refs.orders(guest.sessionId).where('guestId', '==', guest.guestId).orderBy('createdAt', 'desc').limit(50).get(),
   ]);
   if (!sessionSnapshot.exists) fail('not-found', 'session-closed', 'Dining session not found');
+  const sessionDoc = sessionSnapshot.data() as {tableLabel: string; chargeTotalMinor?: number};
 
   const orders = orderSnapshots.docs.map((doc) => {
     const data = doc.data() as {
@@ -164,10 +165,14 @@ export const getGuestSessionView = onCall(callableOptions, async (request): Prom
   });
 
   return {
-    tableLabel: (sessionSnapshot.data() as {tableLabel: string}).tableLabel,
+    tableLabel: sessionDoc.tableLabel,
     sessionId: guest.sessionId,
     orders,
     ownTotalMinor: orders.filter((order) => isChargeable(order.status)).reduce((sum, order) => sum + order.totalMinor, 0),
+    // Whether the *table* owes anything, as a flag rather than an amount: it
+    // tells the client whether asking for the bill is possible without
+    // revealing what the rest of the party has spent.
+    tableHasChargeableOrders: (sessionDoc.chargeTotalMinor ?? 0) > 0,
   };
 });
 
@@ -176,6 +181,27 @@ export const createServiceRequest = onCall(callableOptions, async (request): Pro
   const input = parseInput(createServiceRequestInput, request.data);
   const guest = await requireGuest(input.capability);
   await consumeRateLimit(`service:${guest.guestId}:${input.type}`, 3, 5 * 60_000);
+
+  // There is nothing to settle until the table owes something, so a bill
+  // request against a zero charge total is refused: it would otherwise send a
+  // waiter to print a P0.00 bill. `chargeTotalMinor` is the table's figure, not
+  // this guest's, because any one guest may legitimately ask for the whole
+  // table's bill; it is maintained by submitGuestOrder and by cancellation, so
+  // a table whose only order was cancelled is back to zero. Assistance is
+  // always allowed — a guest who has ordered nothing is exactly who needs it.
+  if (input.type === 'bill') {
+    const sessionSnapshot = await refs.session(guest.sessionId).get();
+    if (!sessionSnapshot.exists) fail('not-found', 'session-closed', 'Dining session not found');
+    const session = sessionSnapshot.data() as {status: string; chargeTotalMinor?: number};
+    if (session.status !== 'open') fail('failed-precondition', 'session-closed', 'This table has been closed');
+    if ((session.chargeTotalMinor ?? 0) <= 0) {
+      fail(
+        'failed-precondition',
+        'nothing-to-bill',
+        'There is nothing on this table’s bill yet. Order something first, or call a waiter for help.',
+      );
+    }
+  }
 
   const ref = refs.serviceRequests().doc();
   await ref.set({

@@ -43,15 +43,27 @@ export default function BillPage() {
       setRequested(type);
     } catch (failure) {
       const apiError = failure as ApiError;
-      setError(
-        apiError.code === 'rate-limited'
-          ? 'Your request has already been sent. A waiter is on the way.'
-          : 'We could not send that request. Please catch a waiter’s eye instead.',
-      );
+      if (apiError.code === 'rate-limited') {
+        setError('Your request has already been sent. A waiter is on the way.');
+      } else if (apiError.code === 'nothing-to-bill') {
+        // The server refused because the table owes nothing. Re-read the view
+        // so the button settles into its disabled state rather than inviting
+        // another tap.
+        setError('There is nothing on your bill yet. Place an order first, or call a waiter for help.');
+        setView((current) => (current ? {...current, tableHasChargeableOrders: false} : current));
+      } else {
+        setError('We could not send that request. Please catch a waiter’s eye instead.');
+      }
     } finally {
       setBusy(false);
     }
   };
+
+  // The server is the authority on whether a bill exists; this only decides
+  // whether to offer the button. While the view is unknown (still loading, or
+  // it failed to load) the tap is allowed through, so a network hiccup cannot
+  // strand a guest who does have a bill to settle.
+  const canRequestBill = !view || view.tableHasChargeableOrders;
 
   return (
     <GuestChrome title="Bill and assistance" hideCartBar>
@@ -63,7 +75,9 @@ export default function BillPage() {
             <span className="small muted">Your items so far</span>
             <strong>Personal total</strong>
             <p className="small muted" style={{margin: '4px 0 0'}}>
-              Others at your table may have ordered separately.
+              {view.tableHasChargeableOrders
+                ? 'Others at your table may have ordered separately.'
+                : 'Nothing has been ordered at this table yet.'}
             </p>
           </div>
           <strong>
@@ -78,9 +92,23 @@ export default function BillPage() {
 
       <div className="content-heading compact"><div><p className="sectionlabel">At your table</p><h2>How can we help?</h2></div></div>
       <div className="service-actions">
-        <button type="button" className="service-action" onClick={() => void request('bill')} disabled={busy}>
+        <button
+          type="button"
+          className="service-action"
+          onClick={() => void request('bill')}
+          disabled={busy || !canRequestBill}
+          aria-describedby={canRequestBill ? undefined : 'bill-unavailable'}
+        >
           <span className="feature-icongold"><ReceiptText size={19} /></span>
-          <span><strong>Request the bill</strong><small>A waiter will bring it to your table.</small></span><b>→</b>
+          <span>
+            <strong>Request the bill</strong>
+            <small id={canRequestBill ? undefined : 'bill-unavailable'}>
+              {canRequestBill
+                ? 'A waiter will bring it to your table.'
+                : 'Available once something has been ordered at your table.'}
+            </small>
+          </span>
+          <b>→</b>
         </button>
         <button type="button" className="service-action" onClick={() => void request('assistance')} disabled={busy}>
           <span className="feature-icongold"><ConciergeBell size={19} /></span>

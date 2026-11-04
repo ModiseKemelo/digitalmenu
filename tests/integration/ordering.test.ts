@@ -295,6 +295,7 @@ describe('service requests', () => {
   it('creates a bill request and rate limits repeats', async () => {
     const token = await seedTable('TBL-030');
     const {capability, sessionId} = await resolve(token);
+    await callFn('submitGuestOrder', {capability, items: [{itemId: 'curry', quantity: 1}], idempotencyKey: key()});
 
     for (let i = 0; i < 3; i += 1) {
       await callFn('createServiceRequest', {capability, type: 'bill'});
@@ -311,6 +312,7 @@ describe('service requests', () => {
   it('counts the two request types separately', async () => {
     const token = await seedTable('TBL-031');
     const {capability} = await resolve(token);
+    await callFn('submitGuestOrder', {capability, items: [{itemId: 'curry', quantity: 1}], idempotencyKey: key()});
 
     for (let i = 0; i < 3; i += 1) await callFn('createServiceRequest', {capability, type: 'bill'});
     const billBlocked = await expectFailure('createServiceRequest', {capability, type: 'bill'});
@@ -318,5 +320,76 @@ describe('service requests', () => {
 
     // Asking for assistance must still be possible once bill requests are capped.
     await callFn('createServiceRequest', {capability, type: 'assistance'});
+  });
+
+  // A P0.00 bill is not a bill: a waiter must not be sent to print one.
+  it('refuses a bill request when nothing has been ordered', async () => {
+    const token = await seedTable('TBL-032');
+    const {capability, sessionId} = await resolve(token);
+
+    const failure = await expectFailure('createServiceRequest', {capability, type: 'bill'});
+    expect(failure.details?.code).toBe('nothing-to-bill');
+
+    const requests = await restaurant().collection('serviceRequests').where('sessionId', '==', sessionId).get();
+    expect(requests.size).toBe(0);
+
+    // Ordering is what makes the bill real, and the same call then succeeds.
+    await callFn('submitGuestOrder', {capability, items: [{itemId: 'curry', quantity: 1}], idempotencyKey: key()});
+    await callFn('createServiceRequest', {capability, type: 'bill'});
+    const after = await restaurant().collection('serviceRequests').where('sessionId', '==', sessionId).get();
+    expect(after.size).toBe(1);
+  });
+
+  // The guard must not strand a guest who needs help but has ordered nothing.
+  it('still allows assistance when nothing has been ordered', async () => {
+    const token = await seedTable('TBL-033');
+    const {capability, sessionId} = await resolve(token);
+
+    await callFn('createServiceRequest', {capability, type: 'assistance'});
+    const requests = await restaurant().collection('serviceRequests').where('sessionId', '==', sessionId).get();
+    expect(requests.size).toBe(1);
+    expect(requests.docs[0].data().type).toBe('assistance');
+  });
+
+  // Cancelling the only order takes the table's charge total back to zero, so
+  // the bill becomes unrequestable again rather than staying stuck as P0.00.
+  it('refuses a bill request once the only order is cancelled', async () => {
+    const token = await seedTable('TBL-034');
+    const {capability, sessionId} = await resolve(token);
+    const order = await callFn<unknown, SubmitOrderResult>('submitGuestOrder', {
+      capability,
+      items: [{itemId: 'curry', quantity: 1}],
+      idempotencyKey: key(),
+    });
+
+    const uid = await signInAs('canceller@example.com');
+    await makeStaff(uid, 'admin');
+    await callFn('updateOrderStatus', {sessionId, orderId: order.orderId, nextStatus: 'cancelled', expectedVersion: 0});
+    await signOutStaff();
+
+    const failure = await expectFailure('createServiceRequest', {capability, type: 'bill'});
+    expect(failure.details?.code).toBe('nothing-to-bill');
+  });
+
+  // The flag the bill screen uses to disable its button must agree with the
+  // callable, and must be true for a guest who has personally ordered nothing.
+  it('reports whether the table owes anything without revealing the amount', async () => {
+    const token = await seedTable('TBL-035');
+    const [guestOne, guestTwo] = await Promise.all([resolve(token), resolve(token)]);
+
+    const before = await callFn<unknown, GuestSessionView>('getGuestSessionView', {capability: guestOne.capability});
+    expect(before.tableHasChargeableOrders).toBe(false);
+
+    await callFn('submitGuestOrder', {
+      capability: guestOne.capability,
+      items: [{itemId: 'curry', quantity: 1}],
+      idempotencyKey: key(),
+    });
+
+    // Guest two has ordered nothing, yet may still settle the table's bill.
+    const view = await callFn<unknown, GuestSessionView>('getGuestSessionView', {capability: guestTwo.capability});
+    expect(view.tableHasChargeableOrders).toBe(true);
+    expect(view.ownTotalMinor).toBe(0);
+    await callFn('createServiceRequest', {capability: guestTwo.capability, type: 'bill'});
   });
 });

@@ -71,6 +71,7 @@ export type ErrorCode =
   | 'option-invalid'
   | 'version-conflict'
   | 'illegal-transition'
+  | 'nothing-to-bill'
   | 'balance-outstanding'
   | 'already-reversed'
   | 'rate-limited'
