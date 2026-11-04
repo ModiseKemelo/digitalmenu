@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {fetchCategories, fetchPublishedItems, type MenuCategory, type MenuItem} from '@/lib/menu-data';
 import {Notice, Photo, Spinner} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
+import MenuGuidance from '@/components/MenuGuidance';
 
 export default function MenuPage() {
   const [categories, setCategories] = useState<MenuCategory[] | null>(null);
@@ -35,12 +36,12 @@ export default function MenuPage() {
 
       {categories && categories.length > 0 && (
         <>
-          <div className="filter-chips" aria-label="Menu filters">
-            <span className="filter-chip active">All</span>
-            <span className="filter-chip">Popular</span>
-            <span className="filter-chip">Vegetarian</span>
-            <span className="filter-chip">Spicy</span>
+          <div className="menu-facts" aria-label="Menu information">
+            <span>Prices in BWP</span>
+            <span>Freshly prepared</span>
+            <span>Availability may change</span>
           </div>
+          <MenuGuidance />
           <div className="content-heading">
             <div><p className="sectionlabel">Explore</p><h2>Choose a course</h2></div>
             <span>{categories.length} categories</span>

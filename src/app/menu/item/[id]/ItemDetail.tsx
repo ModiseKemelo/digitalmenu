@@ -8,13 +8,14 @@
  */
 import {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {Plus, Minus, TriangleAlert} from 'lucide-react';
+import {Plus, Minus} from 'lucide-react';
 import {fetchItem, type MenuItem} from '@/lib/menu-data';
 import {MAX_LINE_QUANTITY} from '@/lib/contracts';
 import {unitPriceWithOptions} from '@/lib/order-domain';
 import {useCart} from '@/lib/cart';
 import {Money, Notice, Photo, Spinner, BackLink} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
+import MenuGuidance from '@/components/MenuGuidance';
 
 export default function ItemDetail({itemId}: {itemId: string}) {
   const router = useRouter();
@@ -87,12 +88,7 @@ export default function ItemDetail({itemId}: {itemId: string}) {
             <Money minor={item.priceMinor} />
           </div>
           {item.description && <p>{item.description}</p>}
-          {item.allergens.length > 0 && (
-            <p className="allergen-note">
-              <TriangleAlert size={14} strokeWidth={2} />
-              Allergens: {item.allergens.join(', ')}
-            </p>
-          )}
+          <MenuGuidance compact allergens={item.allergens} />
         </div>
       </article>
 
@@ -144,9 +140,7 @@ export default function ItemDetail({itemId}: {itemId: string}) {
               onChange={(event) => setNotes(event.target.value)}
               placeholder="For example: no chilli, well done"
             />
-            <p className="small muted" style={{margin: '6px 0 0'}}>
-              Please tell your waiter directly about any allergy.
-            </p>
+            <p className="small muted" style={{margin: '6px 0 0'}}>Preferences entered here do not replace speaking to your waiter about an allergy.</p>
           </section>
 
           <div className="dish-add-row">

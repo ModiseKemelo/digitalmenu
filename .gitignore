@@ -15,3 +15,6 @@ tsconfig.tsbuildinfo
 # not in git; data/ holds what was parsed out of it.
 docs/*.pdf
 *:Zone.Identifier
+
+# Scratch renders of the menu PDF (source material, never committed).
+tmp/
