@@ -10,7 +10,7 @@ import Link from 'next/link';
 import {api, ApiError} from '@/lib/api';
 import {readGuestSession} from '@/lib/guest-session';
 import type {GuestSessionView} from '@/lib/contracts';
-import {Money, Notice, Spinner, StatusBadge} from '@/components/ui';
+import {CardListSkeleton, Money, Notice, StatusBadge} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
 
 /** Polling interval: frequent enough to feel live, light enough to be cheap. */
@@ -55,7 +55,7 @@ export default function OrdersPage() {
   return (
     <GuestChrome title="My orders" subtitle="This list updates on its own while you are at the table.">
       {error && <Notice tone="error">{error}</Notice>}
-      {!view && !error && <Spinner label="Loading your orders" />}
+      {!view && !error && <CardListSkeleton count={2} lines={3} label="Loading your orders" />}
 
       {view && view.orders.length === 0 && (
         <Notice>

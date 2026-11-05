@@ -11,7 +11,7 @@ import Link from 'next/link';
 import {Armchair} from 'lucide-react';
 import {collection, getDocs, orderBy, query} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
-import {Notice, Spinner, BackLink} from '@/components/ui';
+import {BackLink, CardListSkeleton, Notice} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
 
@@ -44,7 +44,7 @@ function TableList() {
     <>
       <BackLink href="/staff">Live orders</BackLink>
       {error && <Notice tone="error">{error}</Notice>}
-      {!tables && !error && <Spinner label="Loading tables" />}
+      {!tables && !error && <CardListSkeleton count={8} lines={1} grid label="Loading tables" />}
       {tables && tables.length === 0 && (
         <Notice tone="warn">No tables have been provisioned yet. Run the table provisioning script.</Notice>
       )}

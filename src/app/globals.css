@@ -822,3 +822,53 @@ body {
   .order-pipeline li { min-width: 0; flex: 1 1 18%; font-size: 8px; padding: 4px 3px; }
   .order-actions .btn { flex: 1 1 100%; }
 }
+
+/* ── Loading states ─────────────────────────────────────────────────────────
+   A spinning arc in the brand's burgundy-and-gold, plus shimmering skeletons
+   for content whose shape is already known. The skeleton keeps the layout from
+   jumping when content lands, which reads as faster than a spinner even when
+   the wait is identical.                                                   */
+.spinner-line { display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 0; color: var(--muted); font-size: 12px; }
+.spinner-ring {
+  flex: 0 0 auto; display: inline-block; width: 22px; height: 22px;
+  border: 2px solid rgba(108,29,49,.16);
+  border-top-color: var(--burgundy, #6b2f3c);
+  border-right-color: var(--gold, #caa85e);
+  border-radius: 50%;
+  animation: spin .85s linear infinite;
+}
+.spinner-ring-lg { width: 42px; height: 42px; border-width: 3px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.page-loader { min-height: 46vh; display: grid; place-items: center; align-content: center; gap: 12px; padding: 30px 20px; text-align: center; }
+.page-loader-mark { display: grid; place-items: center; width: 74px; height: 74px; background: radial-gradient(circle, rgba(202,168,94,.14), transparent 70%); border-radius: 50%; }
+.page-loader strong { font: 400 23px var(--font-serif); font-weight: 400; }
+.page-loader small { max-width: 34ch; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+.skeleton {
+  display: block; position: relative; overflow: hidden;
+  background: linear-gradient(90deg, #ece5db 25%, #f6f1e9 37%, #ece5db 63%);
+  background-size: 400% 100%;
+  border-radius: 8px;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+.skeleton-tile { min-height: 210px; border-radius: 23px; }
+.skeleton-row { border-color: var(--line); box-shadow: none; }
+.skeleton-row:hover { transform: none; box-shadow: none; }
+.skeleton-thumb { height: 100%; min-height: 154px; border-radius: 0; }
+.skeleton-copy { display: grid; align-content: center; gap: 9px; }
+.skeleton-card { display: grid; gap: 9px; padding: 18px; }
+
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-ring { animation-duration: 2.4s; }
+  .skeleton { animation: none; background: #ece5db; }
+}
+
+@media (max-width: 620px) {
+  .skeleton-tile { min-height: 190px; border-radius: 20px; }
+  .skeleton-thumb { min-height: 125px; }
+  .page-loader strong { font-size: 21px; }
+}

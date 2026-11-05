@@ -12,7 +12,7 @@ import {ReceiptText, ConciergeBell} from 'lucide-react';
 import {api, ApiError} from '@/lib/api';
 import {readGuestSession} from '@/lib/guest-session';
 import type {GuestSessionView, ServiceRequestType} from '@/lib/contracts';
-import {Money, Notice, Spinner} from '@/components/ui';
+import {CardListSkeleton, Money, Notice} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
 
 export default function BillPage() {
@@ -67,7 +67,7 @@ export default function BillPage() {
 
   return (
     <GuestChrome title="Bill and assistance" hideCartBar>
-      {!view && !error && <Spinner label="Loading your items" />}
+      {!view && !error && <CardListSkeleton count={1} lines={2} label="Loading your items" />}
 
       {view && (
         <div className="between card bill-total-card">

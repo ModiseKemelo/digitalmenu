@@ -17,7 +17,7 @@ import {collection, onSnapshot, query, where, orderBy, getDocs} from 'firebase/f
 import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import type {ServiceRequestType} from '@/lib/contracts';
 import {api, ApiError} from '@/lib/api';
-import {Notice, Spinner} from '@/components/ui';
+import {CardListSkeleton, Notice} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
 
@@ -272,7 +272,7 @@ function Queue() {
         </Notice>
       )}
 
-      {!requests && !error && <Spinner label="Loading service calls" />}
+      {!requests && !error && <CardListSkeleton count={2} lines={2} label="Loading service calls" />}
 
       {requests?.length === 0 && (
         <Notice tone="ok">No one is waiting. Guest calls will appear here the moment they are made.</Notice>

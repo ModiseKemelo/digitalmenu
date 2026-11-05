@@ -3,7 +3,7 @@
 import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {fetchCategories, fetchPublishedItems, type MenuCategory, type MenuItem} from '@/lib/menu-data';
-import {Notice, Photo, Spinner} from '@/components/ui';
+import {Notice, Photo, TileGridSkeleton} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
 import MenuGuidance from '@/components/MenuGuidance';
 
@@ -26,7 +26,7 @@ export default function MenuPage() {
   return (
     <GuestChrome title="What are you craving?" subtitle="Bold flavours, open-flame cooking and favourites from around the world.">
       {error && <Notice tone="error">{error}</Notice>}
-      {!categories && !error && <Spinner label="Loading the menu" />}
+      {!categories && !error && <TileGridSkeleton count={6} label="Loading the menu" />}
 
       {categories && categories.length === 0 && (
         <Notice tone="warn">

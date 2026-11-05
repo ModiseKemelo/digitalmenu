@@ -10,7 +10,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {collection, getDocs, orderBy, query} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {api, ApiError} from '@/lib/api';
-import {Notice, Spinner, BackLink} from '@/components/ui';
+import {BackLink, CardListSkeleton, Notice} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
 import QrLabel from '@/components/QrLabel';
 import OperationsShell from '@/components/OperationsShell';
@@ -88,7 +88,7 @@ function Tables() {
         working at once.
       </Notice>
 
-      {!tables && !error && <Spinner label="Loading tables" />}
+      {!tables && !error && <CardListSkeleton count={6} lines={1} label="Loading tables" />}
       {tables && tables.length === 0 && (
         <Notice tone="warn">
           No tables exist yet. Provision them with <code>npm run qr:provision</code>, which also produces the printable sheet.

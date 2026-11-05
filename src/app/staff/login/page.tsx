@@ -5,7 +5,7 @@ import {useRouter, useSearchParams} from 'next/navigation';
 import {Eye, EyeOff, LogIn} from 'lucide-react';
 import {onAuthStateChanged, signInWithEmailAndPassword} from 'firebase/auth';
 import {firebase, isFirebaseConfigured, isAppCheckMissing} from '@/lib/firebase-client';
-import {Notice, Spinner} from '@/components/ui';
+import {Notice, PageLoader, Spinner} from '@/components/ui';
 import Brand from '@/components/Brand';
 
 /**
@@ -80,7 +80,7 @@ function LoginForm() {
   if (alreadyIn === null) {
     return (
       <div className="login-form">
-        <Spinner label="Checking your session" />
+        <PageLoader label="Checking your session" />
       </div>
     );
   }

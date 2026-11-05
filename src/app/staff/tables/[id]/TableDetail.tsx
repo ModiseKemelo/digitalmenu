@@ -13,7 +13,7 @@ import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {api, ApiError, newIdempotencyKey} from '@/lib/api';
 import type {OrderStatus, PaymentMethod} from '@/lib/contracts';
 import {isSettled} from '@/lib/order-domain';
-import {Money, Notice, Spinner, StatusBadge, BackLink} from '@/components/ui';
+import {BackLink, CardListSkeleton, Money, Notice, StatusBadge} from '@/components/ui';
 import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -183,7 +183,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     }
   };
 
-  if (session === undefined) return <Spinner label="Loading this table" />;
+  if (session === undefined) return <CardListSkeleton count={3} lines={3} label="Loading this table" />;
 
   if (session === null) {
     return (

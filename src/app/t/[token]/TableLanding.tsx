@@ -5,7 +5,7 @@ import {useRouter} from 'next/navigation';
 import {api, ApiError} from '@/lib/api';
 import {isFirebaseConfigured, isAppCheckMissing} from '@/lib/firebase-client';
 import {writeGuestSession} from '@/lib/guest-session';
-import {Notice, Spinner} from '@/components/ui';
+import {Notice, PageLoader} from '@/components/ui';
 import Brand from '@/components/Brand';
 
 /** Human wording for the server's structured QR failures. */
@@ -62,7 +62,11 @@ export default function TableLanding({token}: {token: string}) {
         <p>We are securely opening the dining menu for this table.</p></div>
       </header>
       <div className="landing-status">
-        {error ? <Notice tone="error">{error}</Notice> : <Spinner label="Opening the menu" />}
+        {error ? (
+          <Notice tone="error">{error}</Notice>
+        ) : (
+          <PageLoader label="Opening your menu" hint="Connecting this phone to your table's dining session." />
+        )}
       </div>
     </main>
   );

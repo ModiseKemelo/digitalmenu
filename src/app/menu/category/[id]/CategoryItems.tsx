@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {Search} from 'lucide-react';
 import {fetchPublishedItems, type MenuItem} from '@/lib/menu-data';
-import {Money, Notice, Photo, Spinner, BackLink} from '@/components/ui';
+import {BackLink, DishListSkeleton, Money, Notice, Photo} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
 
 export default function CategoryItems({categoryId}: {categoryId: string}) {
@@ -31,7 +31,7 @@ export default function CategoryItems({categoryId}: {categoryId: string}) {
     <GuestChrome title={categoryName} subtitle="Choose a dish to see its details and make it yours.">
       <BackLink href="/menu">All categories</BackLink>
       {error && <Notice tone="error">{error}</Notice>}
-      {!items && !error && <Spinner label="Loading dishes" />}
+      {!items && !error && <DishListSkeleton count={5} label="Loading dishes" />}
 
       {items && items.length > 0 && (
         <div className="searchwrap">

@@ -13,7 +13,7 @@ import {onAuthStateChanged, type User} from 'firebase/auth';
 import {doc, getDoc} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID, isFirebaseConfigured} from '@/lib/firebase-client';
 import type {StaffRole} from '@/lib/contracts';
-import {Notice, Spinner} from './ui';
+import {Notice, PageLoader} from './ui';
 
 export type StaffProfile = {uid: string; name: string; role: StaffRole};
 
@@ -54,7 +54,8 @@ export default function StaffGuard({
     });
   }, []);
 
-  if (state.status === 'loading') return <Spinner label="Checking your access" />;
+  if (state.status === 'loading')
+    return <PageLoader label="Checking your access" hint="Confirming your staff record and role." />;
 
   if (state.status === 'anonymous') {
     return <SendToLogin pathname={pathname} router={router} />;

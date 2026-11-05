@@ -14,7 +14,7 @@ import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
 import {ACTIVE_ORDER_STATUSES, nextStatuses, canRoleTransition} from '@/lib/order-domain';
 import type {OrderStatus} from '@/lib/contracts';
 import {api, ApiError} from '@/lib/api';
-import {Money, Notice, Spinner, StatusBadge} from '@/components/ui';
+import {CardListSkeleton, Money, Notice, StatusBadge} from '@/components/ui';
 import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
 
@@ -236,7 +236,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
 
       {error && <Notice tone="error">{error}</Notice>}
       {done && !error && <Notice tone="ok">{done}</Notice>}
-      {!orders && !error && <Spinner label="Connecting to the live order feed" />}
+      {!orders && !error && <CardListSkeleton count={2} lines={4} label="Connecting to the live order feed" />}
       {orders && orders.length === 0 && <Notice tone="ok">No orders are waiting. The dining room is clear.</Notice>}
 
       {byTable.map(([tableId, tableOrders]) => (

@@ -13,7 +13,7 @@ import {fetchItem, type MenuItem} from '@/lib/menu-data';
 import {MAX_LINE_QUANTITY} from '@/lib/contracts';
 import {unitPriceWithOptions} from '@/lib/order-domain';
 import {useCart} from '@/lib/cart';
-import {Money, Notice, Photo, Spinner, BackLink} from '@/components/ui';
+import {BackLink, Money, Notice, Photo, Skeleton} from '@/components/ui';
 import GuestChrome from '@/components/GuestChrome';
 import MenuGuidance from '@/components/MenuGuidance';
 
@@ -46,7 +46,16 @@ export default function ItemDetail({itemId}: {itemId: string}) {
   if (item === undefined) {
     return (
       <GuestChrome title="Dish">
-        <Spinner label="Loading dish" />
+        <div className="card dish-detail-card" role="status" aria-live="polite">
+          <span className="sr-only">Loading dish…</span>
+          <Skeleton height="min(58vw, 420px)" radius={0} />
+          <div className="dish-detail-copy skeleton-copy">
+            <Skeleton width="68%" height={28} />
+            <Skeleton width="32%" height={15} />
+            <Skeleton width="94%" height={12} />
+            <Skeleton width="80%" height={12} />
+          </div>
+        </div>
       </GuestChrome>
     );
   }
