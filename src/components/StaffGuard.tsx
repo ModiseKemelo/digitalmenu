@@ -18,6 +18,40 @@ import {Notice, PageLoader} from './ui';
 
 export type StaffProfile = {uid: string; name: string; role: StaffRole};
 
+/**
+ * What the loader says while the staff record is being read.
+ *
+ * It used to say "Checking your access / Confirming your staff record and
+ * role". That describes our authorization check, which is our concern and not
+ * the waiting person's: a waiter who taps Service calls mid-service wants to
+ * know the service calls are coming, not that a role lookup is in flight. So
+ * each screen names what is about to appear.
+ *
+ * Longest paths first: /admin would otherwise swallow /admin/menu.
+ */
+const SCREEN_LOADERS: {path: string; label: string; hint: string}[] = [
+  {path: '/staff/requests', label: 'Opening service calls', hint: 'Guests asking for the bill, or for help.'},
+  {path: '/staff/order/new', label: 'Opening the order pad', hint: 'Choose a table, then take the order.'},
+  {path: '/staff/scan', label: 'Opening the dining room', hint: 'Every table, and which ones are seated.'},
+  {path: '/staff/tables', label: 'Opening the table', hint: 'Its orders, payments and running bill.'},
+  {path: '/admin/branches', label: 'Opening your locations', hint: 'Each branch, with its own dining room and menu.'},
+  {path: '/admin/reports', label: 'Opening reports', hint: 'Sales, service speed and what is still owed.'},
+  {path: '/admin/settings', label: 'Opening settings', hint: 'This location\u2019s profile and the audit trail.'},
+  {path: '/admin/tables', label: 'Opening tables and QR codes', hint: 'Table access and the codes printed for them.'},
+  {path: '/admin/media', label: 'Opening the media library', hint: 'Which dishes a guest sees a photograph of.'},
+  {path: '/admin/staff', label: 'Opening the team', hint: 'Who may sign in, and what they may do.'},
+  {path: '/admin/menu', label: 'Opening the menu', hint: 'Dishes, prices and what is on tonight.'},
+  {path: '/admin', label: 'Opening administration', hint: 'The dining room, the menu and the team.'},
+  {path: '/staff', label: 'Opening the order board', hint: 'Tonight\u2019s orders, as they arrive.'},
+];
+
+export function screenLoader(pathname: string): {label: string; hint: string} {
+  const match = SCREEN_LOADERS.find(
+    (screen) => pathname === screen.path || pathname.startsWith(`${screen.path}/`),
+  );
+  return match ?? {label: 'Opening the service console', hint: 'One moment while your screen is prepared.'};
+}
+
 export default function StaffGuard({
   children,
   requireAdmin = false,
@@ -61,8 +95,10 @@ export default function StaffGuard({
     });
   }, [branchId]);
 
-  if (state.status === 'loading')
-    return <PageLoader label="Checking your access" hint="Confirming your staff record and role." />;
+  if (state.status === 'loading') {
+    const {label, hint} = screenLoader(pathname);
+    return <PageLoader label={label} hint={hint} />;
+  }
 
   if (state.status === 'anonymous') {
     return <SendToLogin pathname={pathname} router={router} />;

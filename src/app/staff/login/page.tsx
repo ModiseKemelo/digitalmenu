@@ -80,7 +80,7 @@ function LoginForm() {
   if (alreadyIn === null) {
     return (
       <div className="login-form">
-        <PageLoader label="Checking your session" />
+        <PageLoader label="Just a moment" hint="Seeing whether you are already signed in." />
       </div>
     );
   }
@@ -172,7 +172,7 @@ export default function StaffLogin() {
       </section>
 
       {/* useSearchParams needs a Suspense boundary to prerender this route. */}
-      <Suspense fallback={<div className="login-form"><Spinner label="Loading sign-in" /></div>}>
+      <Suspense fallback={<div className="login-form"><Spinner label="Preparing the sign-in" /></div>}>
         <LoginForm />
       </Suspense>
     </main>
