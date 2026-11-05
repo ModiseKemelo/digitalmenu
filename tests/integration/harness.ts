@@ -101,6 +101,19 @@ export const mintToken = () => randomBytes(32).toString('base64url');
 
 /** Seeds a table with a known QR token and returns the raw token. */
 export async function seedTable(tableId: string, label = tableId, enabled = true): Promise<string> {
+  // A retried test re-seeds the same table id. The previous attempt may have
+  // left an open session behind, and resetting activeSessionId below would
+  // orphan it rather than close it: the next resolve then opens a *second*
+  // session, and any assertion counting open sessions for this table sees two.
+  // Clearing them makes a retry start from the same state as a first run.
+  const stale = await restaurant().collection('sessions').where('tableId', '==', tableId).get();
+  for (const session of stale.docs) {
+    for (const name of SESSION_SUBCOLLECTIONS) {
+      await deleteCollection(session.ref.collection(name));
+    }
+    await session.ref.delete();
+  }
+
   const token = mintToken();
   const tokenHash = hashToken(token);
   // QR tokens are top level and carry their branch: a scan supplies the hash
