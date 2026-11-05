@@ -115,6 +115,9 @@ export type ErrorCode =
   | 'balance-outstanding'
   | 'already-reversed'
   | 'rate-limited'
+  | 'already-exists'
+  | 'self-lockout'
+  | 'in-use'
   | 'not-staff'
   | 'not-admin';
 

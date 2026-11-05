@@ -872,3 +872,86 @@ body {
   .skeleton-thumb { min-height: 125px; }
   .page-loader strong { font-size: 21px; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Administration screens
+ *
+ * The admin surfaces are forms and lists rather than the guest menu's imagery,
+ * so they lean on the same tokens but at a denser rhythm: an administrator is
+ * reading 190 dishes at a desk, not three on a phone over dinner.
+ * ------------------------------------------------------------------------- */
+
+.branch-picker { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px 6px 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow-sm); }
+.branch-picker select { min-height: 0; padding: 0 2px; font-size: 12px; font-weight: 600; color: var(--ink); background: transparent; border: 0; box-shadow: none; }
+.branch-picker select:focus { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+.row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+
+.admin-form { display: grid; gap: 14px; padding: 20px; }
+.admin-form h2 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 25px; font-weight: 400; }
+.admin-form label { display: grid; gap: 5px; font-size: 12px; }
+.admin-form label > span:first-child { font-weight: 600; color: var(--ink); }
+.admin-form small { font-size: 11px; line-height: 1.5; }
+.field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.checkline { display: flex !important; align-items: center; gap: 9px; padding: 11px 13px; background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 12px; }
+.checkline input { width: 17px; height: 17px; min-height: 0; margin: 0; accent-color: var(--burgundy); }
+
+.dialog-form { display: grid; gap: 12px; }
+.dialog-form label { display: grid; gap: 5px; font-size: 12px; }
+.dialog-form label > span:first-child { font-weight: 600; }
+.dialog-form small { font-size: 11px; line-height: 1.5; }
+
+.option-editor { display: grid; gap: 9px; margin: 0; padding: 15px; border: 1px solid var(--line-soft); border-radius: 14px; }
+.option-editor legend { padding: 0 7px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.option-editor p { margin: 0; }
+.option-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: 9px; align-items: center; }
+
+/* Status pills on a list row. "On" is informational, "off" is a warning that
+   the guest is not seeing this at all. */
+.pill-on, .pill-off { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 8px; font-family: var(--font-sans); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; vertical-align: middle; }
+.pill-on { color: #205c3e; background: #ecf7f0; border: 1px solid #8fc0a4; }
+.pill-off { color: #7a5c1e; background: #fdf6e4; border: 1px solid #e0cd96; }
+
+/* Menu editor: sections beside the dishes in them. */
+.menu-admin { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+.menu-admin-sections { display: grid; gap: 5px; align-content: start; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-sm); }
+.menu-admin-sections .between { margin-bottom: 5px; }
+.menu-admin-section { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 9px 11px; font-family: var(--font-sans); font-size: 13px; text-align: left; color: var(--ink); background: transparent; border: 1px solid transparent; border-radius: 10px; }
+.menu-admin-section:hover { background: var(--surface-2); }
+.menu-admin-section.active { color: var(--burgundy); background: rgba(107, 47, 60, .07); border-color: var(--gold-soft); font-weight: 600; }
+.menu-admin-section small { display: inline-flex; color: var(--muted); }
+.menu-admin-items { display: grid; gap: 9px; align-content: start; }
+
+/* Reporting period / filter tabs. */
+.range-tabs { display: flex; flex-wrap: wrap; gap: 7px; }
+.range-tabs .active { color: var(--burgundy); background: rgba(107, 47, 60, .08); border-color: var(--gold); font-weight: 600; }
+.rank { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; font-family: var(--font-sans); font-size: 11px; font-weight: 700; color: var(--burgundy); background: var(--ivory-deep); border-radius: 50%; vertical-align: middle; }
+
+/* The audit trail reads as a log, so it is set in a monospace column. */
+.audit-list { display: grid; gap: 1px; background: var(--line-soft); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.audit-row { display: grid; gap: 3px; padding: 11px 14px; background: var(--surface); }
+.audit-row code { font-size: 12px; font-weight: 600; color: var(--burgundy); }
+
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.media-card { display: grid; gap: 0; padding: 0; overflow: hidden; }
+.media-card .photo { position: relative; aspect-ratio: 4 / 3; border-radius: 0; }
+.media-card-body { display: grid; gap: 5px; justify-items: start; padding: 13px 14px 15px; }
+.media-card-body p { margin: 0; }
+
+/* A one-time secret. Monospace and generously spaced because it is read aloud
+   or copied by hand, and an l/1 confusion means a locked-out waiter. */
+.credential { margin: 0; padding: 11px 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 17px; letter-spacing: .06em; word-break: break-all; color: var(--burgundy-ink); background: var(--surface); border: 1px dashed var(--gold-deep); border-radius: 11px; }
+
+@media (max-width: 860px) {
+  .menu-admin { grid-template-columns: 1fr; }
+  .menu-admin-sections { display: flex; flex-wrap: wrap; }
+  .menu-admin-sections .between { flex-basis: 100%; }
+  .menu-admin-section { width: auto; }
+}
+
+@media (max-width: 600px) {
+  .field-row { grid-template-columns: 1fr; }
+  .option-row { grid-template-columns: minmax(0, 1fr) 96px auto; }
+  .admin-table-row { flex-wrap: wrap; }
+  .branch-picker { order: 3; }
+}

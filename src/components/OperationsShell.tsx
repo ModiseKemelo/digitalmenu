@@ -3,9 +3,10 @@
 import type {ReactNode} from 'react';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
-import {Bell, ChartNoAxesCombined, LayoutDashboard, ListOrdered, NotebookPen, QrCode, ScanLine, Settings, Users} from 'lucide-react';
+import {Bell, Building2, ChartNoAxesCombined, Image as ImageIcon, LayoutDashboard, ListOrdered, NotebookPen, QrCode, ScanLine, Settings, Users} from 'lucide-react';
 import Brand from './Brand';
 import StaffAccountBar from './StaffAccountBar';
+import BranchPicker from './BranchPicker';
 
 type NavLink = {href: string; label: string; icon: typeof ListOrdered; disabled?: boolean};
 
@@ -19,10 +20,12 @@ const staffLinks: NavLink[] = [
 const adminLinks: NavLink[] = [
   {href: '/admin', label: 'Overview', icon: LayoutDashboard},
   {href: '/admin/tables', label: 'Tables & QR', icon: QrCode},
-  {href: '/admin/menu', label: 'Menu', icon: ListOrdered, disabled: true},
-  {href: '/admin/staff', label: 'Staff', icon: Users, disabled: true},
-  {href: '/admin/reports', label: 'Reports', icon: ChartNoAxesCombined, disabled: true},
-  {href: '/admin/settings', label: 'Settings', icon: Settings, disabled: true},
+  {href: '/admin/menu', label: 'Menu', icon: ListOrdered},
+  {href: '/admin/media', label: 'Media', icon: ImageIcon},
+  {href: '/admin/staff', label: 'Staff', icon: Users},
+  {href: '/admin/branches', label: 'Branches', icon: Building2},
+  {href: '/admin/reports', label: 'Reports', icon: ChartNoAxesCombined},
+  {href: '/admin/settings', label: 'Settings', icon: Settings},
 ];
 
 export default function OperationsShell({
@@ -82,6 +85,7 @@ export default function OperationsShell({
             <h1>{title}</h1>
             {subtitle && <p className="ops-subtitle">{subtitle}</p>}
           </div>
+          <BranchPicker />
           {actions && <div className="ops-actions">{actions}</div>}
           {/* The side rail collapses on small screens, taking the account bar
               with it. This copy carries sign-out there; exactly one of the two

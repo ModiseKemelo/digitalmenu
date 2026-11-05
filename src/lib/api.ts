@@ -25,6 +25,22 @@ import type {
   RotateTableQrTokenInput,
   RotateTableQrTokenResult,
   GuestSessionView,
+  SaveMenuCategoryInput,
+  SaveMenuCategoryResult,
+  SaveMenuItemInput,
+  SaveMenuItemResult,
+  DeleteMenuItemInput,
+  DeleteMenuItemResult,
+  CreateBranchInput,
+  CreateBranchResult,
+  UpdateBranchInput,
+  UpdateBranchResult,
+  SaveStaffMemberInput,
+  SaveStaffMemberResult,
+  RevokeStaffBranchInput,
+  RevokeStaffBranchResult,
+  SaveRestaurantSettingsInput,
+  SaveRestaurantSettingsResult,
 } from './contracts';
 
 /** A structured error from a callable, carrying the server's error code. */
@@ -70,6 +86,14 @@ export const api = {
   reverseManualPayment: call<ReverseManualPaymentInput, ReverseManualPaymentResult>('reverseManualPayment'),
   closeDiningSession: call<CloseDiningSessionInput, CloseDiningSessionResult>('closeDiningSession'),
   rotateTableQrToken: call<RotateTableQrTokenInput, RotateTableQrTokenResult>('rotateTableQrToken'),
+  saveMenuCategory: call<SaveMenuCategoryInput, SaveMenuCategoryResult>('saveMenuCategory'),
+  saveMenuItem: call<SaveMenuItemInput, SaveMenuItemResult>('saveMenuItem'),
+  deleteMenuItem: call<DeleteMenuItemInput, DeleteMenuItemResult>('deleteMenuItem'),
+  createBranch: call<CreateBranchInput, CreateBranchResult>('createBranch'),
+  updateBranch: call<UpdateBranchInput, UpdateBranchResult>('updateBranch'),
+  saveStaffMember: call<SaveStaffMemberInput, SaveStaffMemberResult>('saveStaffMember'),
+  revokeStaffBranch: call<RevokeStaffBranchInput, RevokeStaffBranchResult>('revokeStaffBranch'),
+  saveRestaurantSettings: call<SaveRestaurantSettingsInput, SaveRestaurantSettingsResult>('saveRestaurantSettings'),
 };
 
 /**

@@ -14,7 +14,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Bell, ReceiptText, ConciergeBell, Volume2, VolumeX, Check} from 'lucide-react';
 import {collection, onSnapshot, query, where, orderBy, getDocs} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {firebase} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import type {ServiceRequestType} from '@/lib/contracts';
 import {api, ApiError} from '@/lib/api';
 import {CardListSkeleton, Notice} from '@/components/ui';
@@ -108,6 +109,7 @@ const LABELS: Record<ServiceRequestType, {title: string; blurb: string; icon: ty
 };
 
 function Queue() {
+  const branchId = useBranchId();
   const [requests, setRequests] = useState<LiveRequest[] | null>(null);
   const [tables, setTables] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +128,7 @@ function Queue() {
   // read once rather than denormalised into every request.
   useEffect(() => {
     const {db} = firebase();
-    getDocs(collection(db, `restaurants/${RESTAURANT_ID}/tables`))
+    getDocs(collection(db, `${branchPath(branchId)}/tables`))
       .then((snapshot) => {
         const next: Record<string, string> = {};
         snapshot.forEach((document) => {
@@ -137,7 +139,7 @@ function Queue() {
       .catch(() => {
         // The queue is still usable with raw table ids.
       });
-  }, []);
+  }, [branchId]);
 
   // Waiting times are rendered from a ticking clock rather than recomputed per
   // snapshot, so "waited 4 min" keeps counting while nothing changes.
@@ -149,7 +151,7 @@ function Queue() {
   useEffect(() => {
     const {db} = firebase();
     const live = query(
-      collection(db, `restaurants/${RESTAURANT_ID}/serviceRequests`),
+      collection(db, `${branchPath(branchId)}/serviceRequests`),
       where('status', '==', 'open'),
       orderBy('createdAt', 'asc'),
     );
@@ -187,7 +189,7 @@ function Queue() {
       },
       () => setError('The live service feed stopped. Reload the page to reconnect.'),
     );
-  }, [playAlert]);
+  }, [playAlert, branchId]);
 
   // Re-alerts for as long as anybody is waiting. A call that nobody clears
   // keeps asking; silence would mean the guest is simply forgotten.
@@ -214,7 +216,7 @@ function Queue() {
     setBusyId(request.id);
     setError(null);
     try {
-      await api.resolveServiceRequest({requestId: request.id});
+      await api.resolveServiceRequest({requestId: request.id, branchId});
       // The listener removes the row; no local mutation needed.
     } catch (failure) {
       const apiError = failure as ApiError;

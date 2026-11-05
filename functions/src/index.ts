@@ -14,3 +14,13 @@ export const healthcheck = onCall(callableOptions, async () => ({status: 'ok', s
 export {resolveTableQr, submitGuestOrder, getGuestSessionView, createServiceRequest} from './guest';
 export {submitWaiterOrder, updateOrderStatus, recordManualPayment, reverseManualPayment, closeDiningSession, resolveServiceRequest} from './staff';
 export {rotateTableQrToken} from './admin';
+export {
+  saveMenuCategory,
+  saveMenuItem,
+  deleteMenuItem,
+  createBranch,
+  updateBranch,
+  saveStaffMember,
+  revokeStaffBranch,
+  saveRestaurantSettings,
+} from './administration';

@@ -10,7 +10,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
 import {ScanLine, Volume2, VolumeX} from 'lucide-react';
 import {collectionGroup, onSnapshot, query, where, orderBy} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {firebase} from '@/lib/firebase-client';
+import {useBranchId} from '@/lib/branch';
 import {ACTIVE_ORDER_STATUSES, nextStatuses, canRoleTransition} from '@/lib/order-domain';
 import type {OrderStatus} from '@/lib/contracts';
 import {api, ApiError} from '@/lib/api';
@@ -90,6 +91,7 @@ function useAlertTone() {
 }
 
 function Dashboard({staff}: {staff: StaffProfile}) {
+  const branchId = useBranchId();
   const [orders, setOrders] = useState<LiveOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -108,7 +110,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
     const {db} = firebase();
     const live = query(
       collectionGroup(db, 'orders'),
-      where('restaurantId', '==', RESTAURANT_ID),
+      where('restaurantId', '==', branchId),
       where('status', 'in', ACTIVE_ORDER_STATUSES),
       orderBy('createdAt', 'desc'),
     );
@@ -153,7 +155,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
       },
       () => setError('The live order feed was interrupted. Check your connection; this screen will reconnect.'),
     );
-  }, [playTone]);
+  }, [playTone, branchId]);
 
   const advance = async (order: LiveOrder, nextStatus: OrderStatus) => {
     setBusyId(order.id);
@@ -161,6 +163,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
     setDone(null);
     try {
       await api.updateOrderStatus({
+        branchId,
         sessionId: order.sessionId,
         orderId: order.id,
         nextStatus,

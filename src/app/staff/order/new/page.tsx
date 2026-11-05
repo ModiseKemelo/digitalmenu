@@ -15,7 +15,8 @@ import {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {Minus, Plus, Search, Trash2} from 'lucide-react';
 import {collection, getDocs, orderBy, query} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {firebase} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import {fetchCategories, fetchPublishedItems, type MenuCategory, type MenuItem} from '@/lib/menu-data';
 import {MAX_LINE_QUANTITY, MAX_ORDER_LINES} from '@/lib/contracts';
 import {api, ApiError, newIdempotencyKey} from '@/lib/api';
@@ -27,6 +28,7 @@ type TableRow = {id: string; label: string; enabled: boolean; busy: boolean};
 type Line = {itemId: string; name: string; unitPriceMinor: number; quantity: number};
 
 function Composer() {
+  const branchId = useBranchId();
   const router = useRouter();
   const [tables, setTables] = useState<TableRow[] | null>(null);
   const [tableId, setTableId] = useState('');
@@ -45,7 +47,7 @@ function Composer() {
 
   useEffect(() => {
     const {db} = firebase();
-    getDocs(query(collection(db, `restaurants/${RESTAURANT_ID}/tables`), orderBy('label')))
+    getDocs(query(collection(db, `${branchPath(branchId)}/tables`), orderBy('label')))
       .then((snapshot) =>
         setTables(
           snapshot.docs.map((document) => {
@@ -67,7 +69,7 @@ function Composer() {
         setItems(loadedItems);
       })
       .catch(() => setError('Could not load the menu. Check your connection.'));
-  }, []);
+  }, [branchId]);
 
   const visibleItems = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -114,6 +116,7 @@ function Composer() {
     setError(null);
     try {
       const result = await api.submitWaiterOrder({
+        branchId,
         tableId,
         items: lines.map((line) => ({itemId: line.itemId, quantity: line.quantity, optionIds: [], notes: ''})),
         idempotencyKey,

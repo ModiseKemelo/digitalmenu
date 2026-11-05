@@ -15,13 +15,15 @@ import {useRouter} from 'next/navigation';
 import {LogOut, UserRound} from 'lucide-react';
 import {onAuthStateChanged, signOut, type User} from 'firebase/auth';
 import {doc, getDoc} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID, isFirebaseConfigured} from '@/lib/firebase-client';
+import {firebase, isFirebaseConfigured} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import type {StaffRole} from '@/lib/contracts';
 
 type Who = {name: string; role: StaffRole | null; email: string};
 
 export default function StaffAccountBar() {
   const router = useRouter();
+  const branchId = useBranchId();
   const [who, setWho] = useState<Who | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -33,7 +35,7 @@ export default function StaffAccountBar() {
         setWho(null);
         return;
       }
-      const snapshot = await getDoc(doc(db, `restaurants/${RESTAURANT_ID}/staff/${user.uid}`)).catch(() => null);
+      const snapshot = await getDoc(doc(db, `${branchPath(branchId)}/staff/${user.uid}`)).catch(() => null);
       const data = snapshot?.exists() ? snapshot.data() : null;
       setWho({
         name: String(data?.name ?? user.email ?? 'Signed in'),
@@ -41,7 +43,7 @@ export default function StaffAccountBar() {
         email: user.email ?? '',
       });
     });
-  }, []);
+  }, [branchId]);
 
   const leave = async () => {
     setBusy(true);

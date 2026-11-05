@@ -12,18 +12,16 @@ import {getFirestore, type CollectionReference} from 'firebase-admin/firestore';
 const PROJECT_ID = 'bukhara-emulator-test';
 const RESTAURANT_ID = 'bukhara';
 
-const COLLECTIONS = [
-  'menuItems',
-  'categories',
-  'tables',
-  'qrTokens',
-  'guestCapabilities',
-  'idempotency',
-  'rateLimits',
-  'serviceRequests',
-  'auditLogs',
-  'staff',
-];
+/** Under restaurants/{branchId}. */
+const COLLECTIONS = ['menuItems', 'categories', 'menuOverrides', 'tables', 'serviceRequests', 'staff'];
+
+/**
+ * At the database root. These moved out of the restaurant tree in the branch
+ * migration, and clearing only the old locations left them growing run after
+ * run — which matters most for rateLimits, where stale buckets can refuse a
+ * call a fresh database would have allowed.
+ */
+const ROOT_COLLECTIONS = ['qrTokens', 'guestCapabilities', 'idempotency', 'rateLimits', 'auditLogs', 'branches'];
 const SESSION_SUBCOLLECTIONS = ['orders', 'payments', 'guestAccess'];
 
 export async function setup(): Promise<void> {
@@ -51,6 +49,16 @@ export async function setup(): Promise<void> {
   }
   await deleteCollection(restaurant.collection('sessions'));
   for (const name of COLLECTIONS) await deleteCollection(restaurant.collection(name));
+  for (const name of ROOT_COLLECTIONS) await deleteCollection(db.collection(name));
+
+  // Branches created by a previous run leave a whole restaurants/{id} tree
+  // behind; the founding branch is kept because every suite assumes it.
+  const branches = await db.collection('restaurants').get();
+  for (const branch of branches.docs) {
+    if (branch.id === RESTAURANT_ID) continue;
+    for (const name of COLLECTIONS) await deleteCollection(branch.ref.collection(name));
+    await branch.ref.delete();
+  }
 
   await deleteApp(app);
 }

@@ -81,6 +81,110 @@ export const closeDiningSessionInput = z.object({
 });
 export const rotateTableQrTokenInput = z.object({tableId: docId, branchId});
 
+/* ---------------------------------------------------------------------------
+ * Administration
+ *
+ * These back the administration screens. Every one of them is admin-only and
+ * re-authorized server-side against the branch it names: the client choosing a
+ * branch in a dropdown is a convenience, never a permission.
+ * ------------------------------------------------------------------------- */
+
+const shortText = (max: number) => z.string().trim().max(max);
+
+export const menuOptionInput = z.object({
+  id: docId,
+  name: z.string().trim().min(1).max(80),
+  /** May be negative: a smaller portion is a legitimate discount. */
+  priceDeltaMinor: z.number().int().min(-MAX_PAYMENT_MINOR).max(MAX_PAYMENT_MINOR),
+  available: z.boolean().default(true),
+});
+export type MenuOptionInput = z.infer<typeof menuOptionInput>;
+
+export const saveMenuCategoryInput = z.object({
+  branchId,
+  /** Absent creates a category; present edits that one. */
+  categoryId: docId.optional(),
+  name: z.string().trim().min(1).max(80),
+  sortOrder: z.number().int().min(0).max(9999).default(0),
+  published: z.boolean().default(true),
+  coverImagePath: shortText(500).nullable().default(null),
+});
+
+export const saveMenuItemInput = z.object({
+  branchId,
+  itemId: docId.optional(),
+  categoryId: docId,
+  name: z.string().trim().min(1).max(120),
+  description: shortText(600).default(''),
+  priceMinor: z.number().int().min(0).max(MAX_PAYMENT_MINOR),
+  available: z.boolean().default(true),
+  published: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).max(9999).default(0),
+  allergens: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  options: z.array(menuOptionInput).max(24).default([]),
+  primaryImagePath: shortText(500).nullable().default(null),
+});
+
+export const deleteMenuItemInput = z.object({branchId, itemId: docId});
+
+export const createBranchInput = z.object({
+  branchId: docId,
+  name: z.string().trim().min(1).max(80),
+  city: shortText(80).default(''),
+});
+
+export const updateBranchInput = z.object({
+  branchId: docId,
+  name: z.string().trim().min(1).max(80).optional(),
+  city: shortText(80).optional(),
+  enabled: z.boolean().optional(),
+});
+
+export const saveStaffMemberInput = z.object({
+  branchId,
+  email: z.string().trim().toLowerCase().email().max(200),
+  name: z.string().trim().min(1).max(80),
+  role: z.enum(STAFF_ROLES),
+  active: z.boolean().default(true),
+  /** Issues a new temporary password, shown once. */
+  resetPassword: z.boolean().default(false),
+});
+
+export const revokeStaffBranchInput = z.object({branchId, uid: docId});
+
+export const saveRestaurantSettingsInput = z.object({
+  branchId,
+  name: z.string().trim().min(1).max(120),
+  tagline: shortText(160).default(''),
+  address: shortText(240).default(''),
+  phone: shortText(40).default(''),
+  serviceNotes: shortText(600).default(''),
+  allergenNotice: shortText(600).default(''),
+});
+
+export type SaveMenuCategoryInput = z.infer<typeof saveMenuCategoryInput>;
+export type SaveMenuItemInput = z.infer<typeof saveMenuItemInput>;
+export type DeleteMenuItemInput = z.infer<typeof deleteMenuItemInput>;
+export type CreateBranchInput = z.infer<typeof createBranchInput>;
+export type UpdateBranchInput = z.infer<typeof updateBranchInput>;
+export type SaveStaffMemberInput = z.infer<typeof saveStaffMemberInput>;
+export type RevokeStaffBranchInput = z.infer<typeof revokeStaffBranchInput>;
+export type SaveRestaurantSettingsInput = z.infer<typeof saveRestaurantSettingsInput>;
+
+export type SaveMenuCategoryResult = {categoryId: string; created: boolean};
+export type SaveMenuItemResult = {itemId: string; created: boolean};
+export type DeleteMenuItemResult = {itemId: string};
+export type CreateBranchResult = {branchId: string};
+export type UpdateBranchResult = {branchId: string};
+/**
+ * A temporary password is returned exactly once, at creation or reset, and is
+ * never stored by us: Firebase Auth keeps only its hash. If it is lost the
+ * administrator issues another.
+ */
+export type SaveStaffMemberResult = {uid: string; created: boolean; temporaryPassword: string | null};
+export type RevokeStaffBranchResult = {uid: string};
+export type SaveRestaurantSettingsResult = {branchId: string};
+
 export type ResolveTableQrInput = z.infer<typeof resolveTableQrInput>;
 export type SubmitGuestOrderInput = z.infer<typeof submitGuestOrderInput>;
 export type SubmitWaiterOrderInput = z.infer<typeof submitWaiterOrderInput>;

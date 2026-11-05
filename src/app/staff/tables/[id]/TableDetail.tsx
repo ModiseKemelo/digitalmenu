@@ -9,7 +9,8 @@
  */
 import {useEffect, useState} from 'react';
 import {collection, onSnapshot, query, where, limit, orderBy} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {firebase} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import {api, ApiError, newIdempotencyKey} from '@/lib/api';
 import type {OrderStatus, PaymentMethod} from '@/lib/contracts';
 import {isSettled} from '@/lib/order-domain';
@@ -31,6 +32,7 @@ type Order = {id: string; status: OrderStatus; totalMinor: number};
 type Payment = {id: string; type: string; amountMinor: number; method: string | null; reference: string; staffName: string; reversedByReversalId: string | null};
 
 function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
+  const branchId = useBranchId();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -49,7 +51,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     const {db} = firebase();
     return onSnapshot(
       query(
-        collection(db, `restaurants/${RESTAURANT_ID}/sessions`),
+        collection(db, `${branchPath(branchId)}/sessions`),
         where('tableId', '==', tableId),
         where('status', '==', 'open'),
         limit(1),
@@ -72,13 +74,13 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
       },
       () => setError('Could not load this table. Check your connection.'),
     );
-  }, [tableId]);
+  }, [tableId, branchId]);
 
   // Follow that session's orders and payments.
   useEffect(() => {
     if (!session) return;
     const {db} = firebase();
-    const base = `restaurants/${RESTAURANT_ID}/sessions/${session.id}`;
+    const base = `${branchPath(branchId)}/sessions/${session.id}`;
     const stopOrders = onSnapshot(query(collection(db, `${base}/orders`), orderBy('createdAt', 'desc')), (snapshot) =>
       setOrders(
         snapshot.docs.map((document) => ({
@@ -108,7 +110,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
       stopOrders();
       stopPayments();
     };
-  }, [session?.id, session]);
+  }, [session?.id, session, branchId]);
 
   /** Parses the typed amount into integer thebe without a float round-trip. */
   const parseAmountMinor = (value: string): number | null => {
@@ -130,6 +132,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     setMessage(null);
     try {
       const result = await api.recordManualPayment({
+        branchId,
         sessionId: session.id,
         amountMinor,
         method,
@@ -151,7 +154,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     setBusy(true);
     setError(null);
     try {
-      await api.reverseManualPayment({sessionId: session.id, paymentId, reason, idempotencyKey: newIdempotencyKey()});
+      await api.reverseManualPayment({branchId, sessionId: session.id, paymentId, reason, idempotencyKey: newIdempotencyKey()});
       setMessage('Payment reversed.');
       setReversing(null);
     } catch (failure) {
@@ -167,7 +170,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     setBusy(true);
     setError(null);
     try {
-      await api.closeDiningSession({sessionId: session.id, expectedVersion: session.version, managerExceptionReason});
+      await api.closeDiningSession({branchId, sessionId: session.id, expectedVersion: session.version, managerExceptionReason});
       setMessage('Table closed.');
       setClosing(false);
     } catch (failure) {

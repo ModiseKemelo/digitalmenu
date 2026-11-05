@@ -10,7 +10,8 @@ import {useEffect, useState} from 'react';
 import Link from 'next/link';
 import {Armchair} from 'lucide-react';
 import {collection, getDocs, orderBy, query} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {firebase} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import {BackLink, CardListSkeleton, Notice} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
@@ -18,12 +19,13 @@ import OperationsShell from '@/components/OperationsShell';
 type TableRow = {id: string; label: string; enabled: boolean; busy: boolean};
 
 function TableList() {
+  const branchId = useBranchId();
   const [tables, setTables] = useState<TableRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const {db} = firebase();
-    getDocs(query(collection(db, `restaurants/${RESTAURANT_ID}/tables`), orderBy('label')))
+    getDocs(query(collection(db, `${branchPath(branchId)}/tables`), orderBy('label')))
       .then((snapshot) =>
         setTables(
           snapshot.docs.map((document) => {
@@ -38,7 +40,7 @@ function TableList() {
         ),
       )
       .catch(() => setError('Could not load the tables. Check your connection.'));
-  }, []);
+  }, [branchId]);
 
   return (
     <>

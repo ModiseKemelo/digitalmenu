@@ -11,7 +11,8 @@ import Link from 'next/link';
 import {usePathname, useRouter} from 'next/navigation';
 import {onAuthStateChanged, type User} from 'firebase/auth';
 import {doc, getDoc} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID, isFirebaseConfigured} from '@/lib/firebase-client';
+import {firebase, isFirebaseConfigured} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import type {StaffRole} from '@/lib/contracts';
 import {Notice, PageLoader} from './ui';
 
@@ -26,6 +27,9 @@ export default function StaffGuard({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  // Staff membership is held per location, so which location is selected
+  // decides which record is read — and therefore what this person may do.
+  const branchId = useBranchId();
   const [state, setState] = useState<{status: 'loading' | 'anonymous' | 'denied' | 'ready'; staff?: StaffProfile}>({
     status: 'loading',
   });
@@ -35,13 +39,16 @@ export default function StaffGuard({
       setState({status: 'denied'});
       return;
     }
+    // Switching location re-asks the question; showing the previous location's
+    // answer while the new one is read would flash access that may not exist.
+    setState({status: 'loading'});
     const {auth, db} = firebase();
     return onAuthStateChanged(auth, async (user: User | null) => {
       if (!user) {
         setState({status: 'anonymous'});
         return;
       }
-      const snapshot = await getDoc(doc(db, `restaurants/${RESTAURANT_ID}/staff/${user.uid}`)).catch(() => null);
+      const snapshot = await getDoc(doc(db, `${branchPath(branchId)}/staff/${user.uid}`)).catch(() => null);
       const data = snapshot?.exists() ? snapshot.data() : null;
       if (!data || data.active !== true) {
         setState({status: 'denied'});
@@ -52,7 +59,7 @@ export default function StaffGuard({
         staff: {uid: user.uid, name: String(data.name ?? user.email ?? user.uid), role: data.role as StaffRole},
       });
     });
-  }, []);
+  }, [branchId]);
 
   if (state.status === 'loading')
     return <PageLoader label="Checking your access" hint="Confirming your staff record and role." />;
@@ -62,7 +69,12 @@ export default function StaffGuard({
   }
 
   if (state.status === 'denied') {
-    return <Notice tone="error">This account does not have active staff access. Speak to your manager.</Notice>;
+    return (
+      <Notice tone="error">
+        This account has no active staff access at the selected location. If you work somewhere else, switch
+        location in the header; otherwise speak to your manager.
+      </Notice>
+    );
   }
 
   const staff = state.staff!;

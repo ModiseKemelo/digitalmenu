@@ -8,7 +8,8 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {collection, getDocs, orderBy, query} from 'firebase/firestore';
-import {firebase, RESTAURANT_ID} from '@/lib/firebase-client';
+import {firebase} from '@/lib/firebase-client';
+import {useBranchId, branchPath} from '@/lib/branch';
 import {api, ApiError} from '@/lib/api';
 import {BackLink, CardListSkeleton, Notice} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
@@ -20,6 +21,7 @@ type TableRow = {id: string; label: string; enabled: boolean; busy: boolean; tok
 type Issued = {tableId: string; label: string; payload: string};
 
 function Tables() {
+  const branchId = useBranchId();
   const [tables, setTables] = useState<TableRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -28,9 +30,10 @@ function Tables() {
   const [confirming, setConfirming] = useState<{id: string; label: string} | null>(null);
 
   const load = useCallback(async () => {
+    setTables(null);
     try {
       const {db} = firebase();
-      const snapshot = await getDocs(query(collection(db, `restaurants/${RESTAURANT_ID}/tables`), orderBy('label')));
+      const snapshot = await getDocs(query(collection(db, `${branchPath(branchId)}/tables`), orderBy('label')));
       setTables(
         snapshot.docs.map((document) => {
           const data = document.data();
@@ -46,7 +49,7 @@ function Tables() {
     } catch {
       setError('Could not load the tables.');
     }
-  }, []);
+  }, [branchId]);
 
   useEffect(() => {
     void load();
@@ -57,7 +60,7 @@ function Tables() {
     setBusyId(tableId);
     setError(null);
     try {
-      const result = await api.rotateTableQrToken({tableId});
+      const result = await api.rotateTableQrToken({tableId, branchId});
       setNewToken({tableId, label, payload: result.printableQrPayload});
       await load();
     } catch (failure) {
