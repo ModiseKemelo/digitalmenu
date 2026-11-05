@@ -12,9 +12,9 @@ All privileged actions: callable HTTPS Functions or Next.js server routes with e
 - `submitWaiterOrder({tableId,items,idempotencyKey})` -> `{orderId}`. Require active waiter/admin.
 - `updateOrderStatus({orderId,nextStatus,expectedVersion})` -> `{status,version}`. Validate state transition.
 - `createServiceRequest({capability,type:'bill'|'assistance'})` -> `{requestId}`. Limit repeats.
-- `recordManualPayment({sessionId,amountMinor,method:'cash'|'card',reference,idempotencyKey})` -> `{paymentId,balanceMinor}`. Staff-only, append-only.
+- `recordManualPayment({sessionId,amountMinor,tipMinor?,method:'cash'|'card',reference,idempotencyKey})` -> `{paymentId,balanceMinor,tipTotalMinor}`. Staff-only, append-only. `tipMinor` is optional and additional to `amountMinor`: it is tracked in `session.tipTotalMinor` and never settles the bill. Reversing a payment reverses its tip.
 - `reverseManualPayment({paymentId,reason})` -> `{reversalId}`. Admin-only.
-- `closeDiningSession({sessionId,expectedVersion})` -> `{closedAt}`. Staff-only; zero balance or manager exception.
+- `closeDiningSession({sessionId,expectedVersion})` -> `{closedAt}`. Staff-only; zero balance, or any balance with a written reason recorded in the audit trail.
 - `rotateTableQrToken({tableId})` -> `{printableQrPayload}`. Admin-only; revoke old token.
 
 All errors return structured codes in `details.code` (`invalid-request`,

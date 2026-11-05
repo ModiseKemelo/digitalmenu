@@ -62,6 +62,15 @@ export const recordManualPaymentInput = z.object({
   branchId,
   sessionId: docId,
   amountMinor: z.number().int().min(1).max(MAX_PAYMENT_MINOR),
+  /**
+   * An optional tip, on top of amountMinor rather than part of it.
+   *
+   * Tipping already happens on the floor, in cash, and the system has been
+   * silent about it. Keeping it separate from amountMinor is the whole point:
+   * a tip must never pay down the bill, or a table would read as settled while
+   * the kitchen is still owed money.
+   */
+  tipMinor: z.number().int().min(0).max(MAX_PAYMENT_MINOR).default(0),
   method: z.enum(PAYMENT_METHODS),
   reference: freeText.default(''),
   idempotencyKey,
@@ -216,8 +225,8 @@ export type OrderLineSnapshot = {
 
 export type SubmitOrderResult = {orderId: string; status: OrderStatus; totalMinor: number};
 export type UpdateOrderStatusResult = {status: OrderStatus; version: number};
-export type RecordManualPaymentResult = {paymentId: string; balanceMinor: number};
-export type ReverseManualPaymentResult = {reversalId: string; balanceMinor: number};
+export type RecordManualPaymentResult = {paymentId: string; balanceMinor: number; tipTotalMinor: number};
+export type ReverseManualPaymentResult = {reversalId: string; balanceMinor: number; tipTotalMinor: number};
 export type CloseDiningSessionResult = {closedAt: number};
 export type CreateServiceRequestResult = {requestId: string};
 export type ResolveServiceRequestResult = {requestId: string; resolvedAt: number};

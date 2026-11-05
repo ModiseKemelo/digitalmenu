@@ -74,6 +74,7 @@ export function ensureSession(
     paidMinor: 0,
     adjustmentsMinor: 0,
     balanceMinor: 0,
+    tipTotalMinor: 0,
     version: 0,
   };
   tx.set(sessionRef, {...session, restaurantId: refs.branchId, openedAt: FieldValue.serverTimestamp()});
@@ -101,7 +102,7 @@ export function applySessionTotals(
   refs: Refs,
   tx: Transaction,
   sessionId: string,
-  totals: {chargeTotalMinor: number; paidMinor: number; adjustmentsMinor: number},
+  totals: {chargeTotalMinor: number; paidMinor: number; adjustmentsMinor: number; tipTotalMinor?: number},
 ): number {
   const balanceMinor = sessionBalance(totals);
   tx.update(refs.session(sessionId), {
@@ -109,6 +110,9 @@ export function applySessionTotals(
     paidMinor: totals.paidMinor,
     adjustmentsMinor: totals.adjustmentsMinor,
     balanceMinor,
+    // Tips are tracked beside the bill, never inside it: sessionBalance does
+    // not see this field, so a tip cannot settle a table on its own.
+    ...(totals.tipTotalMinor === undefined ? {} : {tipTotalMinor: totals.tipTotalMinor}),
     updatedAt: FieldValue.serverTimestamp(),
     version: FieldValue.increment(1),
   });

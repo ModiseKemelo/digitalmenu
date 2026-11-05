@@ -158,6 +158,10 @@ export const updateOrderStatus = onCall(callableOptions, async (request): Promis
  * rows, so partial and split payments are just several rows; the balance is
  * recomputed from them. The idempotency key stops a double tap taking the
  * money twice (T10).
+ *
+ * A tip may ride along on the same row. It is stored beside the payment, not
+ * added to it, so the bill is settled by amountMinor alone — otherwise a
+ * generous guest would make a half-paid table look paid in full.
  */
 export const recordManualPayment = onCall(callableOptions, async (request): Promise<RecordManualPaymentResult> => {
   const input = parseInput(recordManualPaymentInput, request.data);
@@ -178,6 +182,7 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
       tx.set(paymentRef, {
         type: 'payment',
         amountMinor: input.amountMinor,
+        tipMinor: input.tipMinor,
         method: input.method satisfies PaymentMethod,
         reference: input.reference,
         staffUid: staff.uid,
@@ -187,13 +192,16 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
         createdAt: FieldValue.serverTimestamp(),
       });
 
+      // Sessions opened before tips existed have no field to add to.
+      const tipTotalMinor = (session.tipTotalMinor ?? 0) + input.tipMinor;
       const balanceMinor = applySessionTotals(refs, tx, input.sessionId, {
         chargeTotalMinor: session.chargeTotalMinor,
         paidMinor: session.paidMinor + input.amountMinor,
         adjustmentsMinor: session.adjustmentsMinor,
+        tipTotalMinor,
       });
 
-      const result: RecordManualPaymentResult = {paymentId: paymentRef.id, balanceMinor};
+      const result: RecordManualPaymentResult = {paymentId: paymentRef.id, balanceMinor, tipTotalMinor};
       writeIdempotentResult(tx, scopedKey, 'recordManualPayment', result);
       audit(tx, {
         branchId: refs.branchId,
@@ -201,7 +209,7 @@ export const recordManualPayment = onCall(callableOptions, async (request): Prom
         actorType: 'staff',
         actorId: staff.uid,
         targetPath: paymentRef.path,
-        detail: {amountMinor: input.amountMinor, method: input.method, balanceMinor},
+        detail: {amountMinor: input.amountMinor, tipMinor: input.tipMinor, method: input.method, balanceMinor},
       });
       return txOk(result);
     }),
@@ -226,7 +234,12 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
       const paymentRef = refs.payment(input.sessionId, input.paymentId);
       const snapshot = await tx.get(paymentRef);
       if (!snapshot.exists) return txFail('not-found', 'already-reversed', 'Payment not found');
-      const payment = snapshot.data() as {type: string; amountMinor: number; reversedByReversalId: string | null};
+      const payment = snapshot.data() as {
+        type: string;
+        amountMinor: number;
+        tipMinor?: number;
+        reversedByReversalId: string | null;
+      };
       if (payment.type !== 'payment') {
         return txFail('failed-precondition', 'already-reversed', 'Only a payment can be reversed');
       }
@@ -238,10 +251,14 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
       if (!sessionRead.ok) return sessionRead;
       const session = sessionRead.value;
 
+      // A payment taken in error takes its tip with it; leaving the tip behind
+      // would quietly overstate what the floor is owed at the end of service.
+      const reversedTipMinor = payment.tipMinor ?? 0;
       const reversalRef = refs.payments(input.sessionId).doc();
       tx.set(reversalRef, {
         type: 'reversal',
         amountMinor: payment.amountMinor,
+        tipMinor: reversedTipMinor === 0 ? 0 : -reversedTipMinor,
         method: null,
         reference: input.reason,
         staffUid: staff.uid,
@@ -252,13 +269,15 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
       });
       tx.update(paymentRef, {reversedByReversalId: reversalRef.id, reversedAt: FieldValue.serverTimestamp()});
 
+      const tipTotalMinor = Math.max(0, (session.tipTotalMinor ?? 0) - reversedTipMinor);
       const balanceMinor = applySessionTotals(refs, tx, input.sessionId, {
         chargeTotalMinor: session.chargeTotalMinor,
         paidMinor: session.paidMinor - payment.amountMinor,
         adjustmentsMinor: session.adjustmentsMinor,
+        tipTotalMinor,
       });
 
-      const result: ReverseManualPaymentResult = {reversalId: reversalRef.id, balanceMinor};
+      const result: ReverseManualPaymentResult = {reversalId: reversalRef.id, balanceMinor, tipTotalMinor};
       writeIdempotentResult(tx, scopedKey, 'reverseManualPayment', result);
       audit(tx, {
         branchId: refs.branchId,
@@ -266,7 +285,12 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
         actorType: 'staff',
         actorId: staff.uid,
         targetPath: reversalRef.path,
-        detail: {paymentId: input.paymentId, amountMinor: payment.amountMinor, reason: input.reason},
+        detail: {
+          paymentId: input.paymentId,
+          amountMinor: payment.amountMinor,
+          tipMinor: reversedTipMinor,
+          reason: input.reason,
+        },
       });
       return txOk(result);
     }),
@@ -274,9 +298,19 @@ export const reverseManualPayment = onCall(callableOptions, async (request): Pro
 });
 
 /**
- * Closes a settled table. Requires a zero (or credit) balance, unless an
- * administrator records a written manager exception. Closing revokes the
- * party's capabilities so the next party cannot read their orders (T12).
+ * Closes a table. Requires a zero (or credit) balance, unless the person
+ * closing records a written reason. Closing revokes the party's capabilities so
+ * the next party cannot read their orders (T12).
+ *
+ * Any waiter may grant that exception. It used to need an administrator, which
+ * in practice meant a walkout held a table hostage until a manager was free —
+ * so the floor either waited or stopped using the system. The control is now
+ * the written reason itself: it is required, it names the waiter in the audit
+ * trail, and Reports lists every unsettled closure for a manager to review
+ * after service rather than during it.
+ *
+ * `managerExceptionReason` keeps its wire name on purpose: renaming it would
+ * break any browser still running the previous bundle mid-service.
  */
 export const closeDiningSession = onCall(callableOptions, async (request): Promise<CloseDiningSessionResult> => {
   const input = parseInput(closeDiningSessionInput, request.data);
@@ -294,13 +328,8 @@ export const closeDiningSession = onCall(callableOptions, async (request): Promi
       }
 
       const exception = input.managerExceptionReason?.trim();
-      if (!isSettled(session.balanceMinor)) {
-        if (!exception) {
-          return txFail('failed-precondition', 'balance-outstanding', 'This table still has an outstanding balance');
-        }
-        if (staff.role !== 'admin') {
-          return txFail('permission-denied', 'not-admin', 'A manager must authorise closing an unsettled table');
-        }
+      if (!isSettled(session.balanceMinor) && !exception) {
+        return txFail('failed-precondition', 'balance-outstanding', 'This table still has an outstanding balance');
       }
 
       await revokeSessionCapabilities(refs, tx, input.sessionId);

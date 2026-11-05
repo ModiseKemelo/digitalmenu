@@ -303,6 +303,109 @@ describe('manual payments', () => {
     });
     expect(failure.details?.code).toBe('already-reversed');
   });
+
+  // A tip must sit beside the bill. If it paid the bill down, a guest who
+  // tipped generously on a part-payment would leave a table reading as settled.
+  it('keeps a tip out of the balance and closes on the bill alone', async () => {
+    const token = await seedTable('TBL-124');
+    const {sessionId} = await guestOrder(token, 'curry', 2); // 25000
+    const uid = await signInAs('tipper@example.com');
+    await makeStaff(uid, 'waiter');
+
+    const partial = await callFn<unknown, RecordManualPaymentResult>('recordManualPayment', {
+      sessionId,
+      amountMinor: 10000,
+      tipMinor: 5000,
+      method: 'cash',
+      reference: 'till-1',
+      idempotencyKey: key(),
+    });
+    expect(partial.balanceMinor).toBe(15000); // the tip did not settle anything
+    expect(partial.tipTotalMinor).toBe(5000);
+
+    const rest = await callFn<unknown, RecordManualPaymentResult>('recordManualPayment', {
+      sessionId,
+      amountMinor: 15000,
+      tipMinor: 2000,
+      method: 'card',
+      reference: 'auth-1',
+      idempotencyKey: key(),
+    });
+    expect(rest.balanceMinor).toBe(0);
+    expect(rest.tipTotalMinor).toBe(7000);
+
+    const session = await sessionDoc(sessionId).get();
+    expect(session.data()?.paidMinor).toBe(25000);
+    expect(session.data()?.tipTotalMinor).toBe(7000);
+
+    const rows = await sessionDoc(sessionId).collection('payments').get();
+    expect(rows.docs.map((doc) => doc.data().tipMinor).sort((a, b) => a - b)).toEqual([2000, 5000]);
+  });
+
+  it('treats an omitted tip as none', async () => {
+    const token = await seedTable('TBL-125');
+    const {sessionId} = await guestOrder(token);
+    const uid = await signInAs('notip@example.com');
+    await makeStaff(uid, 'waiter');
+
+    const result = await callFn<unknown, RecordManualPaymentResult>('recordManualPayment', {
+      sessionId,
+      amountMinor: 5000,
+      method: 'cash',
+      reference: 'till',
+      idempotencyKey: key(),
+    });
+    expect(result.tipTotalMinor).toBe(0);
+    const row = await sessionDoc(sessionId).collection('payments').doc(result.paymentId).get();
+    expect(row.data()?.tipMinor).toBe(0);
+  });
+
+  it('takes the tip back when its payment is reversed', async () => {
+    const token = await seedTable('TBL-126');
+    const {sessionId} = await guestOrder(token);
+    const uid = await signInAs('tipreverse@example.com');
+    await makeStaff(uid, 'admin');
+
+    const payment = await callFn<unknown, RecordManualPaymentResult>('recordManualPayment', {
+      sessionId,
+      amountMinor: 12500,
+      tipMinor: 1500,
+      method: 'cash',
+      reference: 'till',
+      idempotencyKey: key(),
+    });
+    expect(payment.tipTotalMinor).toBe(1500);
+
+    const reversal = await callFn<unknown, {reversalId: string; tipTotalMinor: number}>('reverseManualPayment', {
+      sessionId,
+      paymentId: payment.paymentId,
+      reason: 'rang up twice',
+      idempotencyKey: key(),
+    });
+    expect(reversal.tipTotalMinor).toBe(0);
+
+    const session = await sessionDoc(sessionId).get();
+    expect(session.data()?.tipTotalMinor).toBe(0);
+    const row = await sessionDoc(sessionId).collection('payments').doc(reversal.reversalId).get();
+    expect(row.data()?.tipMinor).toBe(-1500);
+  });
+
+  it('refuses a negative tip', async () => {
+    const token = await seedTable('TBL-127');
+    const {sessionId} = await guestOrder(token);
+    const uid = await signInAs('badtip@example.com');
+    await makeStaff(uid, 'waiter');
+
+    const failure = await expectFailure('recordManualPayment', {
+      sessionId,
+      amountMinor: 5000,
+      tipMinor: -500,
+      method: 'cash',
+      reference: 'till',
+      idempotencyKey: key(),
+    });
+    expect(failure.details?.code).toBe('invalid-request');
+  });
 });
 
 describe('closing a table', () => {
@@ -340,23 +443,15 @@ describe('closing a table', () => {
     expect(table.data()?.activeSessionId).toBeNull();
   });
 
-  it('lets an administrator close an unsettled table with a written reason', async () => {
+  // A walkout cannot wait for a manager to be free, so any waiter may close an
+  // unsettled table. The written reason is the control, not the role.
+  it('lets a waiter close an unsettled table with a written reason', async () => {
     const token = await seedTable('TBL-132');
     const {sessionId} = await guestOrder(token);
     const waiterUid = await signInAs('exception@example.com');
     await makeStaff(waiterUid, 'waiter');
 
-    // A waiter may not grant the exception, even with a reason.
-    let session = await sessionDoc(sessionId).get();
-    const refused = await expectFailure('closeDiningSession', {
-      sessionId,
-      expectedVersion: session.data()?.version,
-      managerExceptionReason: 'guest walked out',
-    });
-    expect(refused.details?.code).toBe('not-admin');
-
-    await makeStaff(waiterUid, 'admin');
-    session = await sessionDoc(sessionId).get();
+    const session = await sessionDoc(sessionId).get();
     await callFn('closeDiningSession', {
       sessionId,
       expectedVersion: session.data()?.version,
@@ -365,7 +460,24 @@ describe('closing a table', () => {
 
     const closed = await sessionDoc(sessionId).get();
     expect(closed.data()?.status).toBe('closed');
+    expect(closed.data()?.closedBy).toBe(waiterUid);
     expect(closed.data()?.closedWithExceptionReason).toBe('guest walked out');
+  });
+
+  it('still refuses an unsettled close with a blank reason', async () => {
+    const token = await seedTable('TBL-134');
+    const {sessionId} = await guestOrder(token);
+    const uid = await signInAs('blankreason@example.com');
+    await makeStaff(uid, 'waiter');
+
+    const session = await sessionDoc(sessionId).get();
+    const failure = await expectFailure('closeDiningSession', {
+      sessionId,
+      expectedVersion: session.data()?.version,
+      managerExceptionReason: '   ',
+    });
+    expect(failure.details?.code).toBe('balance-outstanding');
+    expect((await sessionDoc(sessionId).get()).data()?.status).toBe('open');
   });
 
   it('rejects a stale version when closing', async () => {

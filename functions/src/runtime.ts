@@ -193,5 +193,7 @@ export type SessionDoc = {
   paidMinor: number;
   adjustmentsMinor: number;
   balanceMinor: number;
+  /** Tips taken at the table. Deliberately outside the balance. */
+  tipTotalMinor?: number;
   version: number;
 };

@@ -25,11 +25,21 @@ type Session = {
   chargeTotalMinor: number;
   paidMinor: number;
   balanceMinor: number;
+  tipTotalMinor: number;
   version: number;
 };
 
 type Order = {id: string; status: OrderStatus; totalMinor: number};
-type Payment = {id: string; type: string; amountMinor: number; method: string | null; reference: string; staffName: string; reversedByReversalId: string | null};
+type Payment = {
+  id: string;
+  type: string;
+  amountMinor: number;
+  tipMinor: number;
+  method: string | null;
+  reference: string;
+  staffName: string;
+  reversedByReversalId: string | null;
+};
 
 function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
   const branchId = useBranchId();
@@ -37,6 +47,8 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [amount, setAmount] = useState('');
+  /** Optional, and usually empty: most tables do not tip, and the floor keeps cash tips as before. */
+  const [tip, setTip] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
@@ -69,6 +81,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
           chargeTotalMinor: Number(data.chargeTotalMinor ?? 0),
           paidMinor: Number(data.paidMinor ?? 0),
           balanceMinor: Number(data.balanceMinor ?? 0),
+          tipTotalMinor: Number(data.tipTotalMinor ?? 0),
           version: Number(data.version ?? 0),
         });
       },
@@ -98,6 +111,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
             id: document.id,
             type: String(data.type ?? 'payment'),
             amountMinor: Number(data.amountMinor ?? 0),
+            tipMinor: Number(data.tipMinor ?? 0),
             method: (data.method as string | null) ?? null,
             reference: String(data.reference ?? ''),
             staffName: String(data.staffName ?? ''),
@@ -127,6 +141,14 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
       setError('Enter the amount received, for example 125.50.');
       return;
     }
+    // Blank means no tip, which is the common case. A typed but unreadable tip
+    // is a mistake worth stopping: silently dropping it would lose the money.
+    const typedTip = tip.trim();
+    const tipMinor = typedTip === '' ? 0 : parseAmountMinor(typedTip);
+    if (tipMinor === null) {
+      setError('Enter the tip as an amount, for example 20, or leave it blank.');
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -135,13 +157,16 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
         branchId,
         sessionId: session.id,
         amountMinor,
+        tipMinor,
         method,
         reference: reference.trim(),
         idempotencyKey: newIdempotencyKey(),
       });
       setAmount('');
+      setTip('');
       setReference('');
-      setMessage(result.balanceMinor <= 0 ? 'Payment recorded. This table is settled.' : 'Payment recorded.');
+      const settled = result.balanceMinor <= 0 ? 'Payment recorded. This table is settled.' : 'Payment recorded.';
+      setMessage(tipMinor > 0 ? `${settled} Tip noted separately.` : settled);
     } catch (failure) {
       setError((failure as ApiError).message);
     } finally {
@@ -216,6 +241,12 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
             <span>Balance</span>
             <Money minor={session.balanceMinor} />
           </div>
+          {session.tipTotalMinor > 0 && (
+            <div className="between">
+              <span className="muted">Tip (not part of the bill)</span>
+              <Money minor={session.tipTotalMinor} />
+            </div>
+          )}
         </div>
       </section>
 
@@ -236,6 +267,16 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
             />
           </div>
           <div>
+            <label htmlFor="tip">Tip (BWP, optional)</label>
+            <input
+              id="tip"
+              inputMode="decimal"
+              value={tip}
+              onChange={(event) => setTip(event.target.value)}
+              placeholder="Leave blank if none"
+            />
+          </div>
+          <div>
             <label htmlFor="method">Method</label>
             <select id="method" value={method} onChange={(event) => setMethod(event.target.value as PaymentMethod)}>
               <option value="cash">Cash</option>
@@ -250,7 +291,8 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
             Record payment
           </button>
           <p className="small muted" style={{margin: 0}}>
-            Partial payments are fine — record each one as it is taken. Never record a card PIN or full card number.
+            Partial payments are fine — record each one as it is taken. A tip is on top of the amount received and
+            does not reduce the bill. Never record a card PIN or full card number.
           </p>
         </div>
       </section>
@@ -270,6 +312,12 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
                     {payment.staffName}
                     {payment.reference && ` · ${payment.reference}`}
                   </p>
+                  {payment.tipMinor !== 0 && (
+                    <p className="muted" style={{margin: '2px 0 0'}}>
+                      {payment.tipMinor < 0 ? 'Tip reversed: ' : 'Tip: '}
+                      <Money minor={Math.abs(payment.tipMinor)} />
+                    </p>
+                  )}
                 </div>
                 <div className="row">
                   <span>
@@ -308,7 +356,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
         disabled={busy}
         style={{width: '100%', background: isSettled(session.balanceMinor) ? undefined : 'var(--danger)', borderColor: 'transparent'}}
       >
-        {isSettled(session.balanceMinor) ? 'Close this table' : 'Close with manager authorisation'}
+        {isSettled(session.balanceMinor) ? 'Close this table' : 'Close with a written reason'}
       </button>
 
       <ConfirmDialog
@@ -344,8 +392,8 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
             <p>The guests lose access to their orders, and the table becomes free for the next party.</p>
           ) : (
             <p>
-              This table still owes <Money minor={session.balanceMinor} />. Closing it now needs a manager&rsquo;s
-              written reason, which is kept in the audit trail.
+              This table still owes <Money minor={session.balanceMinor} />. You may close it now, but the reason is
+              kept in the audit trail against your name and a manager reviews these after service.
             </p>
           )
         }
@@ -353,13 +401,13 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
           isSettled(session.balanceMinor)
             ? undefined
             : {
-                label: 'Manager\u2019s reason for closing unsettled',
+                label: 'Why is this table closing unsettled?',
                 hint: 'Recorded against your name in the audit trail.',
-                placeholder: 'For example: walkout, reported to management',
+                placeholder: 'For example: walkout, reported to the duty manager',
                 minLength: 3,
               }
         }
-        confirmLabel={isSettled(session.balanceMinor) ? 'Close table' : 'Close with authorisation'}
+        confirmLabel={isSettled(session.balanceMinor) ? 'Close table' : 'Close unsettled'}
         busy={busy}
         onCancel={() => setClosing(false)}
         onConfirm={(reason) => void closeTable(reason || undefined)}

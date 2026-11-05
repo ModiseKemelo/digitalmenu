@@ -28,7 +28,14 @@ type RangeId = (typeof RANGES)[number]['id'];
 const ORDER_SCAN_LIMIT = 1500;
 const SESSION_SCAN_LIMIT = 600;
 
-type SessionRow = {chargeTotalMinor: number; paidMinor: number; balanceMinor: number; status: string; openedAtMs: number};
+type SessionRow = {
+  chargeTotalMinor: number;
+  paidMinor: number;
+  balanceMinor: number;
+  tipTotalMinor: number;
+  status: string;
+  openedAtMs: number;
+};
 type OrderRow = {
   status: OrderStatus;
   totalMinor: number;
@@ -112,6 +119,8 @@ function Reports() {
             chargeTotalMinor: Number(data.chargeTotalMinor ?? 0),
             paidMinor: Number(data.paidMinor ?? 0),
             balanceMinor: Number(data.balanceMinor ?? 0),
+            // Sessions from before tips were recorded simply have none.
+            tipTotalMinor: Number(data.tipTotalMinor ?? 0),
             status: String(data.status ?? 'open'),
             openedAtMs: data.openedAt?.toMillis?.() ?? 0,
           };
@@ -167,10 +176,12 @@ function Reports() {
     const outstanding = rows
       .filter((row) => row.status === 'open')
       .reduce((total, row) => total + Math.max(0, row.balanceMinor), 0);
+    const tips = rows.reduce((total, row) => total + row.tipTotalMinor, 0);
     const paying = rows.filter((row) => row.chargeTotalMinor > 0);
     return {
       charged,
       collected,
+      tips,
       outstanding,
       covers: rows.length,
       average: paying.length ? Math.round(charged / paying.length) : 0,
@@ -248,6 +259,7 @@ function Reports() {
           </section>
 
           <section className="admin-statbar">
+            <div className="card"><span>Tips recorded</span><strong>{formatBwp(money.tips)}</strong></div>
             <div className="card"><span>Average per paying table</span><strong>{formatBwp(money.average)}</strong></div>
             <div className="card"><span>Orders placed</span><strong>{service.placed}</strong></div>
             <div className="card"><span>Cancelled</span><strong>{service.cancelled}</strong></div>
@@ -262,14 +274,16 @@ function Reports() {
               {money.unsettled === 1
                 ? 'One table was closed while still owing money.'
                 : `${money.unsettled} tables were closed while still owing money.`}{' '}
-              Each of those closures recorded a manager reason; they are listed in the audit trail under Settings.
+              Each of those closures recorded a written reason; they are listed in the audit trail under Settings.
             </Notice>
           )}
 
           <Notice>
             Charged and collected come from the table documents themselves, so they always agree with the bills that
-            were presented. A cash-versus-card split is not shown here: payment rows live under each table and
-            totalling them across a month would mean reading every one.
+            were presented. Tips are counted apart from both, because they were never part of a bill — and only tips
+            a waiter entered are counted, so cash left on the table stays invisible to the system. A cash-versus-card
+            split is not shown here either: payment rows live under each table and totalling them across a month
+            would mean reading every one.
           </Notice>
 
           <div className="content-heading compact">
