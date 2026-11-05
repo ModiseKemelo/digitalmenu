@@ -1,12 +1,13 @@
 /**
  * Uploads menu photographs to Cloud Storage.
  *
- *   npm run seed:images -- --dir /path/to/images [--prefix menu]
+ *   npm run menu:images -- --dir /path/to/images [--prefix menu]
  *
- * Each `<name>.jpg` in the directory is uploaded to `menu/seed/<name>.jpg` and
+ * Each `<name>.jpg` in the directory is uploaded to `<prefix>/<name>.jpg` and
  * made publicly readable, because a menu photograph is public by nature and a
  * signed URL would expire mid-service. The resulting public URL is printed so
- * it can be pasted into the seed CSVs.
+ * it can be pasted into the seed CSVs, or into Media library on the admin
+ * screens, which asks for exactly this URL.
  *
  * Each image is resized before upload. The Next.js image optimizer is off (see
  * next.config.ts), so whatever is uploaded is what a phone downloads; the
@@ -63,7 +64,10 @@ async function main(): Promise<void> {
       metadata: {cacheControl: 'public, max-age=86400'},
     });
     await bucket.file(destination).makePublic();
-    console.log(`  ${file.padEnd(46)} ${Math.round(body.length / 1024)}KB`);
+    // Printed in full because this is the value pasted into Media library; a
+    // bare filename would leave the operator assembling the URL by hand.
+    const publicUrl = `https://storage.googleapis.com/${BUCKET}/${destination}`;
+    console.log(`  ${file.padEnd(46)} ${String(Math.round(body.length / 1024)).padStart(4)}KB  ${publicUrl}`);
   }
 
   console.log('Upload complete.');

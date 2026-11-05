@@ -6,7 +6,7 @@
  * placeholder, because that is the part nobody notices from the inside.
  *
  * Uploading is deliberately not done from the browser: Cloud Storage denies
- * every client write, and photographs go through `npm run seed:images`, which
+ * every client write, and photographs go through `npm run menu:images`, which
  * resizes and compresses before upload. A phone-sized original served straight
  * to a phone is the slowest menu there is. This screen attaches an already
  * uploaded photograph to a dish.
@@ -163,7 +163,7 @@ function Media() {
           )}
 
           <Notice>
-            Photographs are uploaded with <code>npm run seed:images</code>, which resizes and compresses each one
+            Photographs are uploaded with <code>npm run menu:images</code>, which resizes and compresses each one
             before it reaches the bucket. That step is why the menu loads quickly on a phone, so uploading from here
             is deliberately not offered; paste the public URL the script prints.
           </Notice>
