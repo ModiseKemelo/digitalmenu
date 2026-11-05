@@ -16,6 +16,7 @@ import {isSettled} from '@/lib/order-domain';
 import {Money, Notice, Spinner, StatusBadge, BackLink} from '@/components/ui';
 import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 type Session = {
   id: string;
@@ -39,6 +40,9 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  /** The payment awaiting a reversal reason, and whether the close dialog is up. */
+  const [reversing, setReversing] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
 
   // Find the table's open session.
   useEffect(() => {
@@ -142,38 +146,30 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
     }
   };
 
-  const reverse = async (paymentId: string) => {
+  const reverse = async (paymentId: string, reason: string) => {
     if (!session) return;
-    const reason = window.prompt('Why is this payment being reversed? This is recorded against your name.');
-    if (!reason || reason.trim().length < 3) return;
     setBusy(true);
     setError(null);
     try {
-      await api.reverseManualPayment({sessionId: session.id, paymentId, reason: reason.trim(), idempotencyKey: newIdempotencyKey()});
+      await api.reverseManualPayment({sessionId: session.id, paymentId, reason, idempotencyKey: newIdempotencyKey()});
       setMessage('Payment reversed.');
+      setReversing(null);
     } catch (failure) {
       setError((failure as ApiError).message);
+      setReversing(null);
     } finally {
       setBusy(false);
     }
   };
 
-  const closeTable = async () => {
+  const closeTable = async (managerExceptionReason?: string) => {
     if (!session) return;
-    const settled = isSettled(session.balanceMinor);
-    let managerExceptionReason: string | undefined;
-    if (!settled) {
-      const reason = window.prompt('This table is not settled. A manager must give a written reason to close it.');
-      if (!reason || reason.trim().length < 3) return;
-      managerExceptionReason = reason.trim();
-    } else if (!window.confirm('Close this table? The guests will lose access to their orders.')) {
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
       await api.closeDiningSession({sessionId: session.id, expectedVersion: session.version, managerExceptionReason});
       setMessage('Table closed.');
+      setClosing(false);
     } catch (failure) {
       const apiError = failure as ApiError;
       setError(
@@ -181,6 +177,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
           ? 'This table changed on another device. Please look again before closing.'
           : apiError.message,
       );
+      setClosing(false);
     } finally {
       setBusy(false);
     }
@@ -277,7 +274,7 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
                     <Money minor={payment.amountMinor} />
                   </span>
                   {staff.role === 'admin' && payment.type === 'payment' && !payment.reversedByReversalId && (
-                    <button type="button" className="btn btn-ghost small" onClick={() => void reverse(payment.id)} disabled={busy}>
+                    <button type="button" className="btn btn-ghost small" onClick={() => setReversing(payment.id)} disabled={busy}>
                       Reverse
                     </button>
                   )}
@@ -304,12 +301,66 @@ function Detail({tableId, staff}: {tableId: string; staff: StaffProfile}) {
       <button
         type="button"
         className="btn"
-        onClick={() => void closeTable()}
+        onClick={() => setClosing(true)}
         disabled={busy}
         style={{width: '100%', background: isSettled(session.balanceMinor) ? undefined : 'var(--danger)', borderColor: 'transparent'}}
       >
         {isSettled(session.balanceMinor) ? 'Close this table' : 'Close with manager authorisation'}
       </button>
+
+      <ConfirmDialog
+        open={reversing !== null}
+        tone="danger"
+        title="Reverse this payment?"
+        body={
+          <p>
+            The reversal is appended to the table&rsquo;s history rather than deleting the payment, and the balance
+            goes back up by that amount.
+          </p>
+        }
+        reason={{
+          label: 'Why is this payment being reversed?',
+          hint: 'Recorded against your name in the audit trail.',
+          placeholder: 'For example: entered twice in error',
+          minLength: 3,
+        }}
+        confirmLabel="Reverse payment"
+        busy={busy}
+        onCancel={() => setReversing(null)}
+        onConfirm={(reason) => {
+          if (reversing) void reverse(reversing, reason);
+        }}
+      />
+
+      <ConfirmDialog
+        open={closing}
+        tone={isSettled(session.balanceMinor) ? 'default' : 'danger'}
+        title={isSettled(session.balanceMinor) ? 'Close this table?' : 'Close an unsettled table?'}
+        body={
+          isSettled(session.balanceMinor) ? (
+            <p>The guests lose access to their orders, and the table becomes free for the next party.</p>
+          ) : (
+            <p>
+              This table still owes <Money minor={session.balanceMinor} />. Closing it now needs a manager&rsquo;s
+              written reason, which is kept in the audit trail.
+            </p>
+          )
+        }
+        reason={
+          isSettled(session.balanceMinor)
+            ? undefined
+            : {
+                label: 'Manager\u2019s reason for closing unsettled',
+                hint: 'Recorded against your name in the audit trail.',
+                placeholder: 'For example: walkout, reported to management',
+                minLength: 3,
+              }
+        }
+        confirmLabel={isSettled(session.balanceMinor) ? 'Close table' : 'Close with authorisation'}
+        busy={busy}
+        onCancel={() => setClosing(false)}
+        onConfirm={(reason) => void closeTable(reason || undefined)}
+      />
     </>
   );
 }

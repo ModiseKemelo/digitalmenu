@@ -8,6 +8,7 @@
  */
 import {useEffect, useState, type ReactNode} from 'react';
 import Link from 'next/link';
+import {usePathname, useRouter} from 'next/navigation';
 import {onAuthStateChanged, type User} from 'firebase/auth';
 import {doc, getDoc} from 'firebase/firestore';
 import {firebase, RESTAURANT_ID, isFirebaseConfigured} from '@/lib/firebase-client';
@@ -23,6 +24,8 @@ export default function StaffGuard({
   children: (staff: StaffProfile) => ReactNode;
   requireAdmin?: boolean;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [state, setState] = useState<{status: 'loading' | 'anonymous' | 'denied' | 'ready'; staff?: StaffProfile}>({
     status: 'loading',
   });
@@ -54,11 +57,7 @@ export default function StaffGuard({
   if (state.status === 'loading') return <Spinner label="Checking your access" />;
 
   if (state.status === 'anonymous') {
-    return (
-      <Notice tone="warn">
-        Please <Link href="/staff/login">sign in</Link> with your staff account.
-      </Notice>
-    );
+    return <SendToLogin pathname={pathname} router={router} />;
   }
 
   if (state.status === 'denied') {
@@ -71,4 +70,28 @@ export default function StaffGuard({
   }
 
   return <>{children(staff)}</>;
+}
+
+/**
+ * A signed-out staff member used to get a notice with a link, which on a phone
+ * mid-service means reading, tapping, signing in and then navigating back to
+ * where they were. This sends them straight to sign-in and remembers the
+ * destination so they land back on the screen they opened.
+ */
+function SendToLogin({
+  pathname,
+  router,
+}: {
+  pathname: string;
+  router: ReturnType<typeof useRouter>;
+}) {
+  useEffect(() => {
+    router.replace(`/staff/login?next=${encodeURIComponent(pathname)}`);
+  }, [pathname, router]);
+
+  return (
+    <Notice tone="warn">
+      Please <Link href={`/staff/login?next=${encodeURIComponent(pathname)}`}>sign in</Link> with your staff account.
+    </Notice>
+  );
 }

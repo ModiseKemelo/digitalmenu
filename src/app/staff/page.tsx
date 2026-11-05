@@ -6,7 +6,7 @@
  * new order appears without a refresh (acceptance criterion 5). An audible and
  * visible alert is the fallback for a waiter who is not looking at the screen.
  */
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
 import {ScanLine, Volume2, VolumeX} from 'lucide-react';
 import {collectionGroup, onSnapshot, query, where, orderBy} from 'firebase/firestore';
@@ -17,6 +17,32 @@ import {api, ApiError} from '@/lib/api';
 import {Money, Notice, Spinner, StatusBadge} from '@/components/ui';
 import StaffGuard, {type StaffProfile} from '@/components/StaffGuard';
 import OperationsShell from '@/components/OperationsShell';
+
+/**
+ * What each transition is called on the button.
+ *
+ * The labels used to be built as `Mark ${status}`, which produced "Mark
+ * accepted" and "Mark preparing" - the name of a state rather than the action
+ * the button performs, so it was never obvious which one moved the order on.
+ */
+const ACTION_LABEL: Record<OrderStatus, string> = {
+  received: 'Move back to waiting',
+  accepted: 'Accept order',
+  preparing: 'Start preparing',
+  ready: 'Mark ready to serve',
+  served: 'Mark served',
+  cancelled: 'Cancel',
+};
+
+/** The stages an order passes through, for the progress strip on each order. */
+const PIPELINE: OrderStatus[] = ['received', 'accepted', 'preparing', 'ready', 'served'];
+const PIPELINE_LABEL: Record<string, string> = {
+  received: 'Waiting',
+  accepted: 'Accepted',
+  preparing: 'Preparing',
+  ready: 'Ready',
+  served: 'Served',
+};
 
 type LiveOrder = {
   id: string;
@@ -30,10 +56,20 @@ type LiveOrder = {
   items: {name: string; quantity: number; notes: string}[];
 };
 
-/** A short tone, synthesised so the app needs no audio asset. */
+/**
+ * A short tone, synthesised so the app needs no audio asset.
+ *
+ * Memoised deliberately. This function used to be a fresh closure on every
+ * render, and it sits in the live listener's dependency array, so the board
+ * tore down and re-created its Firestore subscription on every render. The new
+ * subscription fired immediately, set state, and triggered another render: a
+ * permanent resubscribe loop that burned reads and left the board showing
+ * stale orders, so a status change never appeared and the stale version then
+ * made the next transition fail as a conflict.
+ */
 function useAlertTone() {
   const context = useRef<AudioContext | null>(null);
-  return () => {
+  return useCallback(() => {
     try {
       context.current ??= new AudioContext();
       const audio = context.current;
@@ -50,17 +86,23 @@ function useAlertTone() {
     } catch {
       // Audio is a convenience; the badge below is the reliable signal.
     }
-  };
+  }, []);
 }
 
 function Dashboard({staff}: {staff: StaffProfile}) {
   const [orders, setOrders] = useState<LiveOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const knownIds = useRef<Set<string> | null>(null);
   const [unseen, setUnseen] = useState(0);
   const playTone = useAlertTone();
+  /** Read inside the listener so toggling sound does not resubscribe it. */
+  const soundOnRef = useRef(soundOn);
+  useEffect(() => {
+    soundOnRef.current = soundOn;
+  }, [soundOn]);
 
   useEffect(() => {
     const {db} = firebase();
@@ -102,7 +144,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
           const fresh = next.filter((order) => !knownIds.current!.has(order.id) && order.status === 'received');
           if (fresh.length > 0) {
             setUnseen((count) => count + fresh.length);
-            if (soundOn) playTone();
+            if (soundOnRef.current) playTone();
           }
         }
         knownIds.current = ids;
@@ -111,11 +153,12 @@ function Dashboard({staff}: {staff: StaffProfile}) {
       },
       () => setError('The live order feed was interrupted. Check your connection; this screen will reconnect.'),
     );
-  }, [soundOn, playTone]);
+  }, [playTone]);
 
   const advance = async (order: LiveOrder, nextStatus: OrderStatus) => {
     setBusyId(order.id);
     setError(null);
+    setDone(null);
     try {
       await api.updateOrderStatus({
         sessionId: order.sessionId,
@@ -123,12 +166,17 @@ function Dashboard({staff}: {staff: StaffProfile}) {
         nextStatus,
         expectedVersion: order.version,
       });
+      // The live feed redraws the badge, but on a busy screen the row may be
+      // off-view, so say plainly that the tap landed.
+      setDone(`${order.tableId}: ${PIPELINE_LABEL[nextStatus] ?? nextStatus}.`);
     } catch (failure) {
       const apiError = failure as ApiError;
       setError(
         apiError.code === 'version-conflict'
-          ? 'Another device changed this order first. The list has refreshed — please look again.'
-          : apiError.message,
+          ? 'Another device changed this order first. The list has refreshed — look again before trying.'
+          : apiError.code === 'illegal-transition'
+            ? 'That order has already moved on. The list has refreshed.'
+            : apiError.message,
       );
     } finally {
       setBusyId(null);
@@ -187,6 +235,7 @@ function Dashboard({staff}: {staff: StaffProfile}) {
       )}
 
       {error && <Notice tone="error">{error}</Notice>}
+      {done && !error && <Notice tone="ok">{done}</Notice>}
       {!orders && !error && <Spinner label="Connecting to the live order feed" />}
       {orders && orders.length === 0 && <Notice tone="ok">No orders are waiting. The dining room is clear.</Notice>}
 
@@ -219,20 +268,39 @@ function Dashboard({staff}: {staff: StaffProfile}) {
                     Taken by a waiter
                   </p>
                 )}
-                <div className="row" style={{marginTop: 10, flexWrap: 'wrap'}}>
+                <ol className="order-pipeline" aria-label="Order progress">
+                  {PIPELINE.map((stage) => {
+                    const reached = PIPELINE.indexOf(order.status) >= PIPELINE.indexOf(stage);
+                    const current = order.status === stage;
+                    return (
+                      <li
+                        key={stage}
+                        className={`${reached ? 'reached' : ''}${current ? ' current' : ''}`}
+                        aria-current={current ? 'step' : undefined}
+                      >
+                        <span>{PIPELINE_LABEL[stage]}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                <div className="order-actions">
                   {nextStatuses(order.status)
                     .filter((status) => canRoleTransition(staff.role, order.status, status))
                     .map((status) => (
                       <button
                         key={status}
                         type="button"
-                        className={status === 'cancelled' ? 'btn btn-ghost small' : 'btn small'}
+                        className={status === 'cancelled' ? 'btn btn-ghost small' : 'btn'}
                         disabled={busyId === order.id}
                         onClick={() => void advance(order, status)}
                       >
-                        {status === 'cancelled' ? 'Cancel' : `Mark ${status}`}
+                        {busyId === order.id ? 'Saving…' : (ACTION_LABEL[status] ?? status)}
                       </button>
                     ))}
+                  {nextStatuses(order.status).length === 0 && (
+                    <p className="small muted" style={{margin: 0}}>No further action for this order.</p>
+                  )}
                 </div>
               </div>
             ))}

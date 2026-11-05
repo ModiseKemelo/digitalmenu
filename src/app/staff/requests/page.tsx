@@ -29,31 +29,69 @@ type LiveRequest = {
   createdAtMs: number;
 };
 
-/** A short tone, synthesised so the app needs no audio asset. */
-function useAlertTone() {
+/**
+ * An alert meant to be hard to ignore.
+ *
+ * A single soft chime was easy to miss across a noisy dining room, and a guest
+ * who has pressed the bell has no other way to reach anyone. So this is a
+ * four-note rising pattern on a square wave - harmonically rich, so it cuts
+ * through chatter far better than a sine tone at the same volume - and it
+ * REPEATS on a timer for as long as anyone is still waiting, rather than
+ * firing once on arrival. Escalates after two minutes.
+ *
+ * It stays behind an explicit on/off control. A sound designed to be
+ * unignorable must also be switchable off by the person it is aimed at.
+ */
+function useUrgentAlert() {
   const context = useRef<AudioContext | null>(null);
-  return useCallback(() => {
+
+  return useCallback((urgent: boolean) => {
     try {
       context.current ??= new AudioContext();
       const audio = context.current;
       if (audio.state === 'suspended') void audio.resume();
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-      // A two-tone chime, pitched apart from the order alert so a waiter can
-      // tell a service call from a new order without looking.
-      oscillator.frequency.setValueAtTime(660, audio.currentTime);
-      oscillator.frequency.setValueAtTime(990, audio.currentTime + 0.16);
-      gain.gain.setValueAtTime(0.0001, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.2, audio.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.5);
-      oscillator.connect(gain).connect(audio.destination);
-      oscillator.start();
-      oscillator.stop(audio.currentTime + 0.52);
+
+      // Rising thirds: a shape heard as a summons rather than a notification.
+      const notes = urgent ? [740, 988, 740, 988, 1175] : [659, 880, 659, 880];
+      const noteLength = 0.17;
+      const peak = urgent ? 0.34 : 0.26;
+
+      notes.forEach((frequency, index) => {
+        const start = audio.currentTime + index * noteLength;
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+        // Square carries across a busy room; the lowpass takes the harshest
+        // edge off so it is attention-getting rather than painful.
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(frequency, start);
+        const filter = audio.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(3200, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(peak, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + noteLength * 0.92);
+        oscillator.connect(filter).connect(gain).connect(audio.destination);
+        oscillator.start(start);
+        oscillator.stop(start + noteLength);
+      });
     } catch {
-      // Audio is a convenience; the list itself is the reliable signal.
+      // Audio is a convenience; the list and the pulsing banner are the
+      // reliable signals.
+    }
+
+    // Phones live in aprons. Vibration reaches a waiter the speakers cannot.
+    try {
+      navigator.vibrate?.(urgent ? [260, 110, 260, 110, 420] : [200, 100, 200]);
+    } catch {
+      // Not supported everywhere, and never essential.
     }
   }, []);
 }
+
+/** How often the alert repeats while calls are still open. */
+const REPEAT_MS = 20_000;
+/** A call waiting longer than this escalates the alert. */
+const URGENT_AFTER_MS = 120_000;
 
 function waitedFor(createdAtMs: number, nowMs: number): string {
   if (!createdAtMs) return 'just now';
@@ -77,7 +115,12 @@ function Queue() {
   const [soundOn, setSoundOn] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const knownIds = useRef<Set<string> | null>(null);
-  const playTone = useAlertTone();
+  const playAlert = useUrgentAlert();
+  /** Read inside the listener so toggling sound does not resubscribe it. */
+  const soundOnRef = useRef(soundOn);
+  useEffect(() => {
+    soundOnRef.current = soundOn;
+  }, [soundOn]);
 
   // Table labels live on the table documents, not on the request, so they are
   // read once rather than denormalised into every request.
@@ -135,7 +178,7 @@ function Queue() {
         const ids = new Set(next.map((request) => request.id));
         if (knownIds.current) {
           const arrived = next.some((request) => !knownIds.current?.has(request.id));
-          if (arrived && soundOn) playTone();
+          if (arrived && soundOnRef.current) playAlert(false);
         }
         knownIds.current = ids;
 
@@ -144,7 +187,28 @@ function Queue() {
       },
       () => setError('The live service feed stopped. Reload the page to reconnect.'),
     );
-  }, [playTone, soundOn]);
+  }, [playAlert]);
+
+  // Re-alerts for as long as anybody is waiting. A call that nobody clears
+  // keeps asking; silence would mean the guest is simply forgotten.
+  const openCount = requests?.length ?? 0;
+  const longestWaitMs = useMemo(() => {
+    const stamps = (requests ?? []).map((request) => request.createdAtMs).filter((stamp) => stamp > 0);
+    return stamps.length > 0 ? Date.now() - Math.min(...stamps) : 0;
+  }, [requests]);
+  const urgent = longestWaitMs >= URGENT_AFTER_MS;
+
+  // Kept in a ref so escalating does not restart the repeat timer.
+  const urgentRef = useRef(urgent);
+  useEffect(() => {
+    urgentRef.current = urgent;
+  }, [urgent]);
+
+  useEffect(() => {
+    if (!soundOn || openCount === 0) return;
+    const timer = setInterval(() => playAlert(urgentRef.current), REPEAT_MS);
+    return () => clearInterval(timer);
+  }, [soundOn, openCount, playAlert]);
 
   const resolve = async (request: LiveRequest) => {
     setBusyId(request.id);
@@ -172,7 +236,7 @@ function Queue() {
   return (
     <>
       <section className="admin-statbar">
-        <div className="card"><span>Open calls</span><strong>{requests?.length ?? '—'}</strong></div>
+        <div className={`card${openCount > 0 ? ' calls-urgent' : ''}`}><span>Open calls</span><strong>{requests?.length ?? '—'}</strong></div>
         <div className="card"><span>Longest wait</span><strong>{oldestWaitMs > 0 ? waitedFor(nowMs - oldestWaitMs, nowMs) : '—'}</strong></div>
         <div className="card">
           <span>Audible alert</span>
@@ -184,9 +248,27 @@ function Queue() {
 
       {error && <Notice tone="error">{error}</Notice>}
       {!soundOn && (
-        <Notice>
-          Turn the audible alert on to be chimed when a guest calls. Browsers only permit sound after a tap, so this
-          cannot be enabled for you automatically.
+        <Notice tone={openCount > 0 ? 'warn' : 'info'}>
+          <span className="calls-alertbar">
+            <span>
+              Turn the alert on to be called when a guest presses the bell. Browsers only permit sound after a tap, so
+              it cannot be switched on for you.
+            </span>
+            <button type="button" className="btn small" onClick={() => {
+              setSoundOn(true);
+              playAlert(false);
+            }}>
+              Turn the alert on
+            </button>
+          </span>
+        </Notice>
+      )}
+
+      {soundOn && openCount > 0 && (
+        <Notice tone={urgent ? 'error' : 'warn'}>
+          {urgent
+            ? `Someone has been waiting over two minutes. The alert will keep sounding until the call is cleared.`
+            : `The alert repeats every ${REPEAT_MS / 1000} seconds while anyone is waiting.`}
         </Notice>
       )}
 
@@ -200,7 +282,12 @@ function Queue() {
         {requests?.map((request) => {
           const {title, blurb, icon: Icon} = LABELS[request.type] ?? LABELS.assistance;
           return (
-            <article key={request.id} className={`card request-row${request.type === 'bill' ? ' is-bill' : ''}`}>
+            <article
+              key={request.id}
+              className={`card request-row${request.type === 'bill' ? ' is-bill' : ''}${
+                nowMs - request.createdAtMs >= URGENT_AFTER_MS && request.createdAtMs > 0 ? ' waiting-long' : ''
+              }`}
+            >
               <span className="feature-icongold"><Icon size={20} /></span>
               <div className="request-copy">
                 <h2>{tables[request.tableId] ?? request.tableId}</h2>

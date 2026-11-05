@@ -14,6 +14,7 @@ import {Notice, Spinner, BackLink} from '@/components/ui';
 import StaffGuard from '@/components/StaffGuard';
 import QrLabel from '@/components/QrLabel';
 import OperationsShell from '@/components/OperationsShell';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 type TableRow = {id: string; label: string; enabled: boolean; busy: boolean; tokenVersion: number};
 type Issued = {tableId: string; label: string; payload: string};
@@ -23,6 +24,8 @@ function Tables() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newToken, setNewToken] = useState<Issued | null>(null);
+  /** The table whose code the administrator is being asked to confirm replacing. */
+  const [confirming, setConfirming] = useState<{id: string; label: string} | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -50,13 +53,7 @@ function Tables() {
   }, [load]);
 
   const rotate = async (tableId: string, label: string) => {
-    if (
-      !window.confirm(
-        `Issue a new QR code for ${label}?\n\nThe code currently on the table stops working immediately, ` +
-          'so only do this if that label is damaged, lost, or being replaced.',
-      )
-    )
-      return;
+    setConfirming(null);
     setBusyId(tableId);
     setError(null);
     try {
@@ -111,7 +108,7 @@ function Tables() {
             <button
               type="button"
               className="btn btn-ghost small"
-              onClick={() => void rotate(table.id, table.label)}
+              onClick={() => setConfirming({id: table.id, label: table.label})}
               disabled={busyId === table.id}
             >
               {busyId === table.id ? 'Issuing…' : 'Issue new code'}
@@ -119,6 +116,27 @@ function Tables() {
           </div>
         ))}
       </section>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        tone="danger"
+        title={confirming ? `Issue a new code for ${confirming.label}?` : 'Issue a new code?'}
+        body={
+          <>
+            <p>
+              The code printed on that table <strong>stops working immediately</strong>. Any guest currently scanning
+              it will be told to ask staff for the current code.
+            </p>
+            <p>Only do this if the label is damaged, lost, or being replaced.</p>
+          </>
+        }
+        confirmLabel="Issue new code"
+        busy={busyId !== null}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => {
+          if (confirming) void rotate(confirming.id, confirming.label);
+        }}
+      />
     </>
   );
 }

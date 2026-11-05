@@ -691,3 +691,134 @@ body {
   .composer-cart { position: static; }
   .composer-filters { grid-template-columns: 1fr; }
 }
+
+/* ── Staff account bar and sign-out ─────────────────────────────────────── */
+.ops-account { width: 100%; display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px; align-items: center; }
+.ops-account-avatar { width: 32px; height: 32px; display: grid; place-items: center; color: var(--gold-soft); background: #2c211e; border-radius: 10px; }
+.ops-account-who { min-width: 0; display: grid; }
+.ops-account-who strong { overflow: hidden; color: #efe8e2; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ops-account-who small { color: #82766e; font-size: 10px; }
+.ops-signout { grid-column: 1 / -1; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 4px; padding: 9px 12px; color: #e8ded7; background: transparent; border: 1px solid #453832; border-radius: 11px; font-size: 11px; font-weight: 700; }
+.ops-signout:hover:not(:disabled) { color: #fff; background: #6c1d31; border-color: #6c1d31; }
+.ops-signout:disabled { opacity: .5; }
+
+/* ── Dialogs ────────────────────────────────────────────────────────────── */
+.dialog { width: min(100% - 32px, 460px); padding: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 26px 70px rgba(26,16,13,.32); }
+.dialog::backdrop { background: rgba(24,18,16,.55); backdrop-filter: blur(2px); }
+.dialog-body { display: grid; gap: 14px; padding: 22px; }
+.dialog-head { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 11px; align-items: center; }
+.dialog-head h2 { grid-column: auto; margin: 0; font-size: 25px; font-weight: 400; line-height: 1.2; }
+.dialog-head:not(:has(.dialog-icon)) h2 { grid-column: 1 / -1; }
+.dialog-icon { width: 36px; height: 36px; display: grid; place-items: center; color: #8a1f2f; background: #f7e3e4; border-radius: 11px; }
+.dialog-copy { display: grid; gap: 9px; }
+.dialog-copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.dialog-field { display: grid; gap: 5px; }
+.dialog-field > span { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.dialog-field > small { color: var(--muted); font-size: 11px; }
+.dialog-field textarea { resize: vertical; }
+.dialog-problem { margin: 0; color: #8a1f2f; font-size: 11px; font-weight: 600; }
+.dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 2px; }
+.dialog-actions .btn { justify-content: center; }
+.btn-danger { background: #8a1f2f; border-color: #8a1f2f; }
+.btn-danger:hover:not(:disabled) { background: #741927; border-color: #741927; }
+
+/* ── Password reveal ────────────────────────────────────────────────────── */
+.password-field { position: relative; display: grid; }
+.password-field input { padding-right: 46px; }
+.password-reveal { position: absolute; top: 50%; right: 6px; width: 38px; height: 38px; display: grid; place-items: center; transform: translateY(-50%); color: var(--muted); background: transparent; border: 0; border-radius: 9px; }
+.password-reveal:hover { color: var(--burgundy); background: var(--surface-2); }
+
+/* ── Staff console on a phone ───────────────────────────────────────────────
+   Staff work one-handed while walking. Below 720px the side rail becomes a
+   fixed bottom tab bar within thumb reach, rather than a strip of icons at the
+   top of the screen, and the account bar moves into the header where it is
+   reachable without scrolling.                                             */
+@media (max-width: 720px) {
+  .ops-shell { grid-template-columns: 1fr; padding-bottom: 76px; }
+  .ops-sidebar {
+    position: fixed; z-index: 40; right: 0; bottom: 0; left: 0;
+    min-height: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    flex-direction: row; align-items: stretch; gap: 0;
+    border-top: 1px solid #2c211e;
+  }
+  .ops-sidebar .brandlockup, .ops-sidebar .ops-area, .ops-sidebar-foot { display: none; }
+  .ops-nav { flex: 1; display: flex; gap: 2px; margin: 0; }
+  .ops-navlink {
+    flex: 1 1 0; min-width: 0; min-height: 52px;
+    flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 6px 2px; border-radius: 12px;
+  }
+  .ops-navlink .ops-navlabel {
+    display: block; overflow: hidden; max-width: 100%;
+    font-size: 9px; font-weight: 700; letter-spacing: .01em; text-align: center;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ops-navlink small { display: none; }
+  .ops-navlink svg { width: 19px; height: 19px; }
+
+  .ops-main { padding: 18px 16px 28px; }
+  .ops-topbar { align-items: stretch; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+  .ops-topbar h1 { font-size: 30px; }
+  .ops-actions { flex-wrap: wrap; }
+  .ops-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+  /* Sign-out has to stay reachable once the rail is a tab bar. */
+  .ops-topbar .ops-account { grid-template-columns: auto minmax(0,1fr) auto; padding: 10px 12px; background: #181210; border-radius: 15px; }
+  .ops-topbar .ops-signout { grid-column: auto; min-height: 38px; margin: 0; }
+  .ops-topbar .ops-signout span { display: none; }
+
+  .ops-stats, .admin-statbar { grid-template-columns: 1fr 1fr; }
+  .ops-stats .card, .admin-statbar .card { padding: 14px; }
+  .ops-stats strong, .admin-statbar strong { font-size: 24px; }
+  .ops-table-grid { grid-template-columns: 1fr 1fr; }
+  .ops-table-card { min-height: 112px; padding: 14px; }
+
+  /* Service calls: the action must not be squeezed to nothing beside the text. */
+  .request-row { grid-template-columns: auto minmax(0,1fr); }
+  .request-row .btn { grid-column: 1 / -1; justify-content: center; }
+
+  .dialog-actions { grid-template-columns: 1fr; }
+  .dialog-body { padding: 18px; }
+  .dialog-head h2 { font-size: 22px; }
+}
+
+/* Exactly one account bar is visible: the rail's below 1000px loses its
+   footer, so the header's copy takes over at the same breakpoint. */
+.ops-topbar-account { display: none; }
+@media (max-width: 1000px) {
+  .ops-topbar-account { display: block; }
+  .ops-topbar-account .ops-account { grid-template-columns: auto minmax(0,1fr) auto; align-items: center; padding: 9px 11px; background: #181210; border-radius: 14px; }
+  .ops-topbar-account .ops-signout { grid-column: auto; min-height: 36px; margin: 0; }
+}
+@media (max-width: 480px) {
+  .ops-topbar-account .ops-signout span { display: none; }
+  .ops-table-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Order progress strip and actions ───────────────────────────────────── */
+.order-pipeline { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: stage; }
+.order-pipeline li { flex: 1 1 auto; min-width: 58px; padding: 5px 7px; color: var(--muted); background: var(--surface-2, #f4efe7); border: 1px solid var(--line); border-radius: 8px; font-size: 9px; font-weight: 700; letter-spacing: .03em; text-align: center; text-transform: uppercase; }
+.order-pipeline li.reached { color: #fff; background: #6c1d31; border-color: #6c1d31; }
+.order-pipeline li.current { background: var(--gold-deep, #8a6a24); border-color: var(--gold-deep, #8a6a24); box-shadow: 0 0 0 2px rgba(202,168,94,.35); }
+.order-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+.order-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+/* ── Service-call urgency ───────────────────────────────────────────────── */
+.calls-urgent { border-color: #8a1f2f !important; animation: callpulse 1.6s ease-in-out infinite; }
+@keyframes callpulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(138,31,47,0); }
+  50% { box-shadow: 0 0 0 5px rgba(138,31,47,.16); }
+}
+.request-row.waiting-long { border-color: #8a1f2f; background: #fdf4f4; }
+.request-row.waiting-long .request-copy p strong { color: #8a1f2f; }
+.calls-alertbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.calls-alertbar .btn { flex: 0 0 auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .calls-urgent { animation: none; }
+}
+
+@media (max-width: 720px) {
+  .order-pipeline li { min-width: 0; flex: 1 1 18%; font-size: 8px; padding: 4px 3px; }
+  .order-actions .btn { flex: 1 1 100%; }
+}
